@@ -92,7 +92,7 @@ export default function ElectricMeterPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Rented Rooms
+      // 1. ดึงข้อมูลห้องที่ถูกเช่าทั้งหมด
       const roomsSnapshot = await getDocs(collection(db, "rooms"));
       const roomsTemp: any[] = [];
       const tenantIds = new Set<string>();
@@ -103,7 +103,7 @@ export default function ElectricMeterPage() {
         roomsTemp.push({ id: doc.id, ...data });
       });
 
-      // 2. Map Tenant Names
+      // 2. ข้อมูลชื่อผู้เช่าจาก users
       const usersMap = new Map<string, string>();
       const tenantIdsArray = Array.from(tenantIds);
       for (let i = 0; i < tenantIdsArray.length; i += 10) {
@@ -128,7 +128,7 @@ export default function ElectricMeterPage() {
       });
       setRentedRooms(rooms);
 
-      // 3. Fetch Meter Readings for Current Selected Month
+      // 3. ดึงข้อมูลการจดมิเตอร์ของเดือนที่เลือก
       const currentReadingsQ = query(collection(db, "meterReadings"), where("month", "==", selectedMonth));
       const currentReadingsSnap = await getDocs(currentReadingsQ);
       const currentReadingsData: Record<string, MeterReading> = {};
@@ -137,7 +137,7 @@ export default function ElectricMeterPage() {
         currentReadingsData[data.roomId] = { ...data, id: doc.id };
       });
 
-      // 4. Fetch Previous Month Readings to calculate "Previous Reading"
+      // 4. ดึงข้อมูลการจดมิเตอร์เดือนก่อนหน้า เพื่อคำนวณค่าก่อนหน้า
       const previousMonth = getPreviousMonthOptions(selectedMonth);
       const prevReadingsQ = query(collection(db, "meterReadings"), where("month", "==", previousMonth));
       const prevReadingsSnap = await getDocs(prevReadingsQ);
@@ -149,7 +149,7 @@ export default function ElectricMeterPage() {
         }
       });
 
-      // 5. Initialize the state for UI
+      // 5. ตั้งค่า state เริ่มต้นสำหรับ UI
       const initialReadings: Record<string, MeterReading> = {};
       rooms.forEach((room) => {
         if (currentReadingsData[room.id]) {
@@ -170,7 +170,7 @@ export default function ElectricMeterPage() {
       });
       setReadings(initialReadings);
 
-      // 6. Check if active bills already exist for this month (exclude cancelled)
+      // 6. ตรวจสอบว่ามีบิลได้สร้างแล้วสำหรับเดือนนี้ (ไม่รวมบิลที่ยกเลิก)
       const billsQ = query(collection(db, "bills"), where("month", "==", selectedMonth));
       const billsSnap = await getDocs(billsQ);
       const tempGeneratedMap: Record<string, boolean> = {};

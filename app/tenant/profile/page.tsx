@@ -324,22 +324,6 @@ export default function TenantProfile() {
             </div>
             
             <div className="pt-4 pb-2 space-y-3">
-              <button
-                onClick={async () => {
-                  if (confirm("คุณต้องการออกจากระบบหรือไม่?")) {
-                    try {
-                      await auth.signOut();
-                      router.push("/auth/login");
-                    } catch (error) {
-                      console.error("Logout failed:", error);
-                      toast.error("ออกจากระบบล้มเหลว");
-                    }
-                  }
-                }}
-                className="w-full sm:w-auto flex justify-center py-2.5 px-6 rounded-lg text-sm font-semibold glass-button-outline border-[var(--glass-border)] text-gray-700 hover:bg-gray-50 transition-colors bg-white shadow-sm"
-              >
-                ออกจากระบบ
-              </button>
 
               <button
                 onClick={handleDeleteProfile}

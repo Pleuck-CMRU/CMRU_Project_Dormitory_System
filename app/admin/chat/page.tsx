@@ -70,7 +70,7 @@ export default function AdminChatPage() {
 
   // โหลดรายชื่อผู้เช่าแบบเรียลไทม์
   useEffect(() => {
-    // 1. Subscribe to users collection (where role == "tenant")
+    // 1. ติดตามคอลเลกชัน users (เฉพาะ role == "tenant")
     const usersQ = query(collection(db, "users"), where("role", "==", "tenant"));
     const unsubUsers = onSnapshot(usersQ, (userSnap) => {
       const tenantBase: Record<string, TenantInfo> = {};
@@ -87,7 +87,7 @@ export default function AdminChatPage() {
         };
       });
 
-      // 2. Subscribe to chats collection to get latest info & unread counts
+      // 2. ติดตามคอลเลกชัน chats เพื่อดึงข้อมูลล่าสุดและจำนวนที่ยังไม่อ่าน
       const unsubChats = onSnapshot(
         collection(db, "chats"), 
         (chatSnap) => {
@@ -101,7 +101,7 @@ export default function AdminChatPage() {
             }
           });
 
-          // 3. Convert back to array and sort
+          // 3. แปลงกลับเป็น array และเรียงลำดับ
           const tenantList = Object.values(updatedTenants);
           tenantList.sort((a, b) => {
             if (!a.lastMessageTime && !b.lastMessageTime) return 0;

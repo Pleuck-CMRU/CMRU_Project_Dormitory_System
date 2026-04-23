@@ -66,12 +66,12 @@ export default function NotificationProvider({ children }: { children: React.Rea
     setToast({ title, body });
     setTimeout(() => setToast(null), 6000);
 
-    // Native Browser Notification for all devices when app is opened
+    // แจ้งเตือนผ่านเบราวเซอร์สำหรับทุกอุปกรณ์ขณะที่แอปเปิดอยู่
     if (typeof Notification !== "undefined" && Notification.permission === "granted") {
       try {
         new Notification(title, { body, icon: '/logo.png' });
       } catch (e) {
-        // Fallback for Safari/Mobile that requires Service Worker for notifications
+        // Fallback สำหรับ Safari/มือถือที่ต้องใช้ Service Worker สำหรับการแจ้งเตือน
         if ("serviceWorker" in navigator) {
           navigator.serviceWorker.ready.then(reg => {
             reg.showNotification(title, { body, icon: '/logo.png' });

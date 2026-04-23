@@ -18,7 +18,7 @@ interface PaymentRecord {
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-// ตัวอย่างข้อมูลจำลอง (ให้ต่อ Firestore ในภายหลัง)
+// ข้อมูลตัวอย่าง (เชื่อมต่อ Firestore แล้ว — ไม่ใช้งานแล้ว)
 // const mockPayments: PaymentRecord[] = [];
 
 const methodLabel: Record<PaymentRecord["method"], string> = {

@@ -51,6 +51,9 @@ export default function TenantDashboard() {
   const [repairs, setRepairs] = useState<Repair[]>([]);
   const [bankAccount, setBankAccount] = useState<BankAccount | null>(null);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+  const [isMoveOutModalOpen, setIsMoveOutModalOpen] = useState(false);
+  const [moveOutRequested, setMoveOutRequested] = useState(false);
+  const [expectedMoveOutDate, setExpectedMoveOutDate] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
 
   const { user, loading: authLoading } = useAuth();
@@ -70,14 +73,16 @@ export default function TenantDashboard() {
         const roomReqQuery = query(collection(db, "room_requests"), where("tenantId", "==", tenantId), where("status", "in", ["pending", "pending_docs", "pending_approval"]));
         const bankAccountQuery = doc(db, "bankAccount", "owner");
         const settingsQuery = doc(db, "settings", "general");
+        const userQuery = doc(db, "users", tenantId);
 
-        const [roomSnapshot, billSnapshot, repairSnapshot, roomReqSnapshot, bankAccountSnap, settingsSnap] = await Promise.all([
+        const [roomSnapshot, billSnapshot, repairSnapshot, roomReqSnapshot, bankAccountSnap, settingsSnap, userSnap] = await Promise.all([
           getDocs(roomQuery).catch(e => { console.error("Room fetch error:", e); return null; }),
           getDocs(billQuery).catch(e => { console.error("Bill fetch error:", e); return null; }),
           getDocs(repairQuery).catch(e => { console.error("Repair fetch error:", e); return null; }),
           getDocs(roomReqQuery).catch(e => { console.error("RoomReq fetch error:", e); return null; }),
           getDoc(bankAccountQuery).catch(e => { console.error("BankAccount fetch error:", e); return null; }),
-          getDoc(settingsQuery).catch(e => { console.error("Settings fetch error:", e); return null; })
+          getDoc(settingsQuery).catch(e => { console.error("Settings fetch error:", e); return null; }),
+          getDoc(userQuery).catch(e => { console.error("User fetch error:", e); return null; })
         ]);
 
         if (roomSnapshot) roomSnapshot.forEach((doc) => setRoom(doc.data() as Room));
@@ -104,6 +109,16 @@ export default function TenantDashboard() {
 
         if (bankAccountSnap && bankAccountSnap.exists()) {
           setBankAccount(bankAccountSnap.data() as BankAccount);
+        }
+
+        if (userSnap && userSnap.exists()) {
+          const userData = userSnap.data();
+          if (userData.moveOutRequested) {
+            setMoveOutRequested(true);
+            if (userData.expectedMoveOutDate) {
+              setExpectedMoveOutDate(userData.expectedMoveOutDate.toDate ? userData.expectedMoveOutDate.toDate() : new Date(userData.expectedMoveOutDate));
+            }
+          }
         }
 
       } catch (error) {
@@ -198,6 +213,31 @@ export default function TenantDashboard() {
     } finally {
       setUploading(false);
       e.target.value = ""; // รีเซ็ต input
+    }
+  };
+
+  const handleRequestMoveOut = async () => {
+    if (!user) return;
+    setUploading(true);
+    try {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 30);
+      
+      await updateDoc(doc(db, "users", user.uid), {
+        moveOutRequested: true,
+        moveOutRequestedAt: new Date(),
+        expectedMoveOutDate: futureDate
+      });
+      
+      setMoveOutRequested(true);
+      setExpectedMoveOutDate(futureDate);
+      setIsMoveOutModalOpen(false);
+      toast.success("แจ้งย้ายออกสำเร็จ ระบบได้บันทึกคำขอของคุณแล้ว");
+    } catch (error) {
+      console.error("Error requesting move out:", error);
+      toast.error("เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -318,12 +358,32 @@ export default function TenantDashboard() {
       {/* สรุปข้อมูล */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-        <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--accent-light)] rounded-full mix-blend-multiply filter blur-2xl opacity-40 group-hover:opacity-60 transition-opacity"></div>
-          <p className="text-[var(--text-muted)] font-medium mb-1">ห้องพักของคุณ</p>
-          <h2 className="text-2xl font-bold text-[var(--text-main)]">
-            {room ? `ตึก ${room.building} ห้อง ${room.roomNumber}` : "ยังไม่มีห้องพัก"}
-          </h2>
+        <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group flex flex-col justify-between">
+          <div>
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--accent-light)] rounded-full mix-blend-multiply filter blur-2xl opacity-40 group-hover:opacity-60 transition-opacity"></div>
+            <p className="text-[var(--text-muted)] font-medium mb-1">ห้องพักของคุณ</p>
+            <h2 className="text-2xl font-bold text-[var(--text-main)]">
+              {room ? `ตึก ${room.building} ห้อง ${room.roomNumber}` : "ยังไม่มีห้องพัก"}
+            </h2>
+          </div>
+          {room && (
+            <div className="mt-4 pt-4 border-t border-[var(--glass-border)] relative z-10">
+              {moveOutRequested ? (
+                <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <span className="font-semibold">แจ้งย้ายออกแล้ว (กำหนด: {expectedMoveOutDate ? new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }).format(expectedMoveOutDate) : '-'})</span>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => setIsMoveOutModalOpen(true)}
+                  className="text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 px-3 py-1.5 rounded-lg transition-colors shadow-sm flex items-center gap-1.5 w-fit"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+                  แจ้งย้ายออก
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
@@ -465,6 +525,50 @@ export default function TenantDashboard() {
             <button onClick={() => setIsPayModalOpen(false)} disabled={uploading} className="w-full glass-button-outline py-2.5 rounded-xl font-bold disabled:opacity-50">
               ปิด
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ============ Modal แจ้งย้ายออก ============ */}
+      {isMoveOutModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !uploading && setIsMoveOutModalOpen(false)} />
+          <div className="relative glass-panel w-full sm:w-[95%] sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 space-y-5 animate-in slide-in-from-bottom sm:fade-in sm:zoom-in-95 max-h-[92vh] overflow-y-auto">
+            <div className="text-center">
+              <div className="w-14 h-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <h2 className="text-xl font-bold text-[var(--text-main)]">ยืนยันการแจ้งย้ายออก</h2>
+            </div>
+            
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-amber-800 text-sm leading-relaxed">
+              <p className="font-bold mb-2">ข้อกำหนดการย้ายออก:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>คุณต้องแจ้งย้ายออกล่วงหน้าอย่างน้อย <strong className="text-red-600">30 วัน</strong></li>
+                <li>ระบบจะกำหนดวันที่ย้ายออกเป็น <strong>{new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))}</strong> อัตโนมัติ</li>
+              </ul>
+            </div>
+            
+            <div className="flex gap-3 pt-2">
+              <button 
+                onClick={() => setIsMoveOutModalOpen(false)} 
+                disabled={uploading} 
+                className="flex-1 glass-button-outline py-3 rounded-xl font-bold disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button 
+                onClick={handleRequestMoveOut} 
+                disabled={uploading} 
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-bold disabled:opacity-50 flex justify-center items-center gap-2 transition-colors shadow-md shadow-red-500/20"
+              >
+                {uploading ? (
+                  <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> กำลังดำเนินการ</>
+                ) : (
+                  "ยืนยันแจ้งย้ายออก"
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
