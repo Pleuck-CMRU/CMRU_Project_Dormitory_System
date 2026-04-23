@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { collection, query, where, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, getDocs, doc, updateDoc, deleteDoc, setDoc, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { toast } from "@/lib/toast";
 
@@ -23,6 +23,8 @@ export default function ManageTenantsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [confirmMoveOut, setConfirmMoveOut] = useState<Tenant | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchTenants = async () => {
@@ -97,48 +99,131 @@ export default function ManageTenantsPage() {
   );
 
   const handleMoveOut = async (tenant: Tenant) => {
-    if (!confirm(`ยืนยันการย้ายออกของผู้เช่า ${tenant.name} ห้อง ${tenant.room} ใช่หรือไม่?`)) {
-      return;
-    }
-    
-    setLoading(true);
+    // แสดง Modal เตือนก่อน
+    setConfirmMoveOut(tenant);
+  };
+
+  const handleConfirmMoveOut = async () => {
+    const tenant = confirmMoveOut;
+    if (!tenant) return;
+    setConfirmMoveOut(null);
+    setIsDeleting(true);
     try {
       // 1. อัปเดตสถานะห้องให้เป็น "ว่าง" และลบ tenantId
       if (tenant.roomId) {
         await updateDoc(doc(db, "rooms", tenant.roomId), {
           status: "ว่าง",
-          tenantId: null
+          tenantId: null,
+          approvedAt: null,
         });
-      } else {
-        console.warn("ไม่พบ roomId สำหรับผู้เช่า:", tenant);
       }
 
-      // 2. อัปเดตข้อมูลผู้ใช้ เพิ่มสถานะว่าย้ายออกแล้ว และเก็บห้องล่าสุดไว้ประวัติ
       if (tenant.tenantId) {
-        await updateDoc(doc(db, "users", tenant.tenantId), {
-          tenantStatus: "moved_out",
-          pastRoom: tenant.room,
-          movedOutAt: new Date(),
-          moveOutRequested: false,
-          expectedMoveOutDate: null
+        const uid = tenant.tenantId;
+
+        // 2. ดึงข้อมูลผู้ใช้สำหรับเก็บไว้ reset
+        const userSnap = await getDocs(query(collection(db, "users"), where("__name__", "==", uid)));
+        const userData = userSnap.docs[0]?.data();
+
+        // 3. ลบ bills
+        const billsSnap = await getDocs(query(collection(db, "bills"), where("tenantId", "==", uid)));
+        for (const d of billsSnap.docs) await deleteDoc(d.ref);
+
+        // 4. ลบ repairs
+        const repairsSnap = await getDocs(query(collection(db, "repairs"), where("tenantId", "==", uid)));
+        for (const d of repairsSnap.docs) await deleteDoc(d.ref);
+
+        // 5. ลบ room_requests
+        const reqSnap = await getDocs(query(collection(db, "room_requests"), where("tenantId", "==", uid)));
+        for (const d of reqSnap.docs) await deleteDoc(d.ref);
+
+        // 6. ลบ chats + messages
+        const msgsSnap = await getDocs(collection(db, "chats", uid, "messages"));
+        for (const d of msgsSnap.docs) await deleteDoc(d.ref);
+        try { await deleteDoc(doc(db, "chats", uid)); } catch {}
+
+        // 7. รีเซ็ต users document ให้เหมือนสมัครใหม่
+        await setDoc(doc(db, "users", uid), {
+          uid,
+          name: userData?.name || "",
+          email: userData?.email || "",
+          phone: userData?.phone || "",
+          role: "tenant",
+          createdAt: userData?.createdAt || new Date().toISOString(),
         });
-      } else {
-        console.warn("ไม่พบ tenantId สำหรับผู้เช่า:", tenant);
       }
 
-      toast.success("ทำรายการย้ายออกสำเร็จ");
-      // ลบออกจาก state ทันทีจะได้ไม่ต้องโหลดใหม่ทั้งหมด
+      toast.success("ย้ายออกสำเร็จ ลบข้อมูลทั้งหมดเรียบร้อยแล้ว");
       setTenants(prev => prev.filter(t => t.id !== tenant.id));
     } catch (error) {
       console.error("เกิดข้อผิดพลาดในการย้ายออก:", error);
-      toast.error("เกิดข้อผิดพลาดในการย้ายออก");
+      toast.error("เกิดข้อผิดพลาด กรุณาลองใหม่");
     } finally {
-      setLoading(false);
+      setIsDeleting(false);
     }
   };
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto p-4 sm:p-6 relative z-10 w-full overflow-hidden">
+
+      {/* ===== Modal ยืนยันย้ายออก ===== */}
+      {confirmMoveOut && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in zoom-in-95 duration-200">
+            <div className="flex flex-col items-center text-center gap-4">
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">ยืนยันการย้ายออก</h3>
+                <p className="text-slate-500 text-sm mt-1">
+                  {confirmMoveOut.name} · ห้อง {confirmMoveOut.room}
+                </p>
+              </div>
+              <div className="w-full bg-red-50 border border-red-200 rounded-2xl p-4 text-left space-y-2">
+                <p className="text-red-700 font-bold text-sm flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                  ระบบจะลบข้อมูลทั้งหมดทันที
+                </p>
+                <ul className="text-red-600 text-xs space-y-1 ml-6 list-disc">
+                  <li>บิลค่าเช่าและประวัติการชำระเงินทั้งหมด</li>
+                  <li>ประวัติแจ้งซ่อมทั้งหมด</li>
+                  <li>ประวัติการจองห้องทั้งหมด</li>
+                  <li>ข้อความแชททั้งหมด</li>
+                  <li>บัญชีจะถูก reset เหมือนสมัครใหม่</li>
+                </ul>
+              </div>
+              <p className="text-slate-400 text-xs">การกระทำนี้ไม่สามารถยกเลิกได้</p>
+              <div className="flex gap-3 w-full">
+                <button
+                  onClick={() => setConfirmMoveOut(null)}
+                  className="flex-1 py-3 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-colors"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleConfirmMoveOut}
+                  className="flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-colors"
+                >
+                  ยืนยันย้ายออก
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Overlay กำลังลบข้อมูล ===== */}
+      {isDeleting && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm gap-4">
+          <div className="w-14 h-14 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+          <p className="text-white font-semibold text-lg">กำลังลบข้อมูล...</p>
+          <p className="text-white/60 text-sm">กรุณารอสักครู่</p>
+        </div>
+      )}
+
       {/* ส่วนหัว */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
