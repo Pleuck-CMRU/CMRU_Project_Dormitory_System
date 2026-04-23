@@ -15,9 +15,9 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/components/AuthProvider";
 
 // ─────────────────────────────────────────────
-// Types
+// ประเภทข้อมูล
 // ─────────────────────────────────────────────
-type NotifCategory = "repair" | "room_request" | "chat" | "bill";
+type NotifCategory = "repair" | "room_request" | "chat" | "bill" | "move_out";
 
 interface NotifItem {
   id: string;
@@ -30,7 +30,7 @@ interface NotifItem {
 }
 
 // ─────────────────────────────────────────────
-// Helper: format relative time (Thai)
+// ฟังก์ชันแปลงเวลาสัมพัทธ์ (ภาษาไทย)
 // ─────────────────────────────────────────────
 function relativeTime(date: Date): string {
   const diff = (Date.now() - date.getTime()) / 1000;
@@ -41,7 +41,7 @@ function relativeTime(date: Date): string {
 }
 
 // ─────────────────────────────────────────────
-// Category icon & color
+// ไอคอนและสีตามประเภทการแจ้งเตือน
 // ─────────────────────────────────────────────
 const CATEGORY_META: Record<
   NotifCategory,
@@ -83,10 +83,19 @@ const CATEGORY_META: Record<
       </svg>
     ),
   },
+  move_out: {
+    color: "text-purple-600",
+    bg: "bg-purple-100",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
+      </svg>
+    ),
+  },
 };
 
 // ─────────────────────────────────────────────
-// Main Component
+// คอมโพเนนต์หลัก
 // ─────────────────────────────────────────────
 export default function AdminNotificationBell() {
   const { user, role, loading } = useAuth();
@@ -153,7 +162,7 @@ export default function AdminNotificationBell() {
             title: "แจ้งซ่อมใหม่",
             body: `ห้อง ${data.room || "-"} · ${data.type || data.issue || "ไม่ระบุอาการ"}`,
             href: "/admin/repair_request",
-            createdAt: ts ? ts.toDate() : new Date(),
+            createdAt: ts ? (ts.toDate ? ts.toDate() : new Date(ts as any)) : new Date(),
           };
         });
         mergeItems("repair", newItems);
@@ -189,7 +198,7 @@ export default function AdminNotificationBell() {
             title: title,
             body: `ห้อง ${data.building ?? ""}${data.roomNumber ?? "-"} · ${bodyStatus}`,
             href: "/admin/room_requests",
-            createdAt: ts ? ts.toDate() : new Date(),
+            createdAt: ts ? (ts.toDate ? ts.toDate() : new Date(ts as any)) : new Date(),
           };
         });
         
@@ -218,7 +227,7 @@ export default function AdminNotificationBell() {
               title: "ข้อความใหม่จากผู้เช่า",
               body: `${count} ข้อความ${count > 1 ? "" : ""} · ${data.tenantName || data.roomNumber || "ผู้เช่า"}`,
               href: "/admin/chat",
-              createdAt: ts ? ts.toDate() : new Date(),
+              createdAt: ts ? (ts.toDate ? ts.toDate() : new Date(ts as any)) : new Date(),
             };
           });
           mergeItems("chat", newItems);
@@ -228,36 +237,68 @@ export default function AdminNotificationBell() {
       )
     );
 
-    // 4. บิลค้างชำระ (bills) - status "unpaid" หรือ overdue (dueDate < now)
+    // 4. บิลรอตรวจสอบและบิลค้างชำระ (bills) - status "pending" หรือ (status "unpaid" และ dueDate < now)
     const billQ = query(
       collection(db, "bills"),
-      where("status", "==", "unpaid"),
-      orderBy("dueDate", "asc"),
-      limit(20)
+      where("status", "in", ["unpaid", "pending"])
     );
     unsubs.push(
       onSnapshot(billQ, (snap) => {
         const now = new Date();
         const newItems = snap.docs
           .filter((d) => {
-            const due: Timestamp | null = d.data().dueDate ?? null;
-            return due ? due.toDate() < now : false;
+            const data = d.data();
+            if (data.status === "pending") return true; // เอาบิลที่รอตรวจสอบเสมอ
+            const due: any = data.dueDate ?? null;
+            if (!due) return false;
+            const dueDateObj = due.toDate ? due.toDate() : new Date(due);
+            return dueDateObj < now; // เอาบิลที่เกินกำหนดแล้ว
           })
           .map((d) => {
             const data = d.data();
-            const ts: Timestamp | null = data.dueDate ?? null;
+            const isPending = data.status === "pending";
+            const ts: any = isPending ? (data.updatedAt ?? data.createdAt ?? null) : (data.dueDate ?? null);
             return {
               id: `bill_${d.id}`,
               category: "bill" as NotifCategory,
-              title: "บิลค้างชำระ (เกินกำหนด)",
-              body: `ห้อง ${data.roomNumber ?? "-"} · ฿${(data.totalAmount ?? 0).toLocaleString()}`,
+              title: isPending ? "แจ้งชำระเงินบิลค่าเช่า" : "บิลค้างชำระ (เกินกำหนด)",
+              body: `ห้อง ${data.roomNumber ?? "-"} · ${isPending ? "รอตรวจสอบสลิป" : `฿${(data.totalAmount ?? 0).toLocaleString()}`}`,
               href: "/admin/bills_payments",
-              createdAt: ts ? ts.toDate() : new Date(),
+              createdAt: ts ? (ts.toDate ? ts.toDate() : new Date(ts)) : new Date(),
             };
           });
         mergeItems("bill", newItems);
       }, (err) => {
         if (err.code !== "permission-denied") console.error("bills listener:", err);
+      })
+    );
+
+    // 5. แจ้งย้ายออก (move_out) - จาก users ที่ moveOutRequested == true
+    const moveOutQ = query(
+      collection(db, "users"),
+      where("moveOutRequested", "==", true)
+    );
+    unsubs.push(
+      onSnapshot(moveOutQ, (snap) => {
+        const newItems = snap.docs.map((d) => {
+          const data = d.data();
+          const ts: any = data.moveOutRequestedAt ?? null;
+          const expDate: any = data.expectedMoveOutDate ?? null;
+          const expDateObj = expDate ? (expDate.toDate ? expDate.toDate() : new Date(expDate)) : null;
+          const isDue = expDateObj && expDateObj <= new Date();
+          
+          return {
+            id: `moveout_${d.id}`,
+            category: "move_out" as NotifCategory,
+            title: isDue ? "ครบกำหนดย้ายออก" : "แจ้งย้ายออกใหม่",
+            body: `ผู้เช่า: ${data.name || "-"}`,
+            href: "/admin/manage_tenants",
+            createdAt: ts ? (ts.toDate ? ts.toDate() : new Date(ts)) : new Date(),
+          };
+        });
+        mergeItems("move_out", newItems);
+      }, (err) => {
+        if (err.code !== "permission-denied") console.error("moveout listener:", err);
       })
     );
 
@@ -369,7 +410,7 @@ export default function AdminNotificationBell() {
           {/* Category Tabs Summary */}
           {items.length > 0 && (
             <div className="flex gap-2 px-5 py-3 border-b border-slate-100 overflow-x-auto">
-              {(["repair", "room_request", "chat", "bill"] as NotifCategory[]).map((cat) => {
+              {(["repair", "room_request", "chat", "bill", "move_out"] as NotifCategory[]).map((cat) => {
                 const catItems = items.filter((i) => i.category === cat);
                 const catUnread = catItems.filter((i) => i.isNew).length;
                 if (catItems.length === 0) return null;
@@ -379,6 +420,7 @@ export default function AdminNotificationBell() {
                   room_request: "จอง",
                   chat: "แชท",
                   bill: "บิล",
+                  move_out: "ย้ายออก",
                 };
                 return (
                   <div
@@ -417,7 +459,7 @@ export default function AdminNotificationBell() {
                     key={item.id}
                     href={item.href}
                     onClick={() => {
-                      // mark this item as read
+                      // ทำเครื่องหมายว่าอ่านแล้ว
                       const next = new Set([...readIds, item.id]);
                       setReadIds(next);
                       try {
@@ -458,34 +500,41 @@ export default function AdminNotificationBell() {
           </div>
 
           {/* Footer */}
-          <div className="border-t border-slate-100 px-5 py-3 grid grid-cols-2 gap-2">
+          <div className="border-t border-slate-100 px-5 py-3 flex flex-wrap gap-2 justify-center">
             <Link
               href="/admin/repair_request"
               onClick={() => setOpen(false)}
-              className="text-center text-xs font-semibold py-2 px-3 rounded-xl bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors"
+              className="flex-1 text-center text-xs font-semibold py-2 px-3 rounded-xl bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors whitespace-nowrap min-w-[70px]"
             >
               แจ้งซ่อม
             </Link>
             <Link
               href="/admin/room_requests"
               onClick={() => setOpen(false)}
-              className="text-center text-xs font-semibold py-2 px-3 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+              className="flex-1 text-center text-xs font-semibold py-2 px-3 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors whitespace-nowrap min-w-[70px]"
             >
               คำขอห้อง
             </Link>
             <Link
               href="/admin/chat"
               onClick={() => setOpen(false)}
-              className="text-center text-xs font-semibold py-2 px-3 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors"
+              className="flex-1 text-center text-xs font-semibold py-2 px-3 rounded-xl bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors whitespace-nowrap min-w-[70px]"
             >
               แชท
             </Link>
             <Link
               href="/admin/bills_payments"
               onClick={() => setOpen(false)}
-              className="text-center text-xs font-semibold py-2 px-3 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+              className="flex-1 text-center text-xs font-semibold py-2 px-3 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-colors whitespace-nowrap min-w-[70px]"
             >
-              บิลค้างชำระ
+              บิล
+            </Link>
+            <Link
+              href="/admin/manage_tenants"
+              onClick={() => setOpen(false)}
+              className="flex-[1_0_100%] text-center text-xs font-semibold py-2 px-3 rounded-xl bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors whitespace-nowrap min-w-[70px]"
+            >
+              จัดการผู้เช่า (ย้ายออก)
             </Link>
           </div>
         </div>

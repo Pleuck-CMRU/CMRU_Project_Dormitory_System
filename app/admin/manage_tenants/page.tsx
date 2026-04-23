@@ -15,6 +15,8 @@ interface Tenant {
   moveInDate: string;
   tenantId: string;
   roomId: string;
+  moveOutRequested?: boolean;
+  expectedMoveOutDate?: any;
 }
 
 export default function ManageTenantsPage() {
@@ -72,7 +74,9 @@ export default function ManageTenantsPage() {
                 status: "active",
                 moveInDate: moveInDateFormatted, // วันที่เข้าพักดึงจากตอนอนุมัติ
                 tenantId: roomData.tenantId,
-                roomId: roomData.id
+                roomId: roomData.id,
+                moveOutRequested: uData.moveOutRequested,
+                expectedMoveOutDate: uData.expectedMoveOutDate
               });
             }
           }
@@ -114,7 +118,9 @@ export default function ManageTenantsPage() {
         await updateDoc(doc(db, "users", tenant.tenantId), {
           tenantStatus: "moved_out",
           pastRoom: tenant.room,
-          movedOutAt: new Date()
+          movedOutAt: new Date(),
+          moveOutRequested: false,
+          expectedMoveOutDate: null
         });
       } else {
         console.warn("ไม่พบ tenantId สำหรับผู้เช่า:", tenant);
@@ -233,18 +239,36 @@ export default function ManageTenantsPage() {
                     </td>
                     <td className="flex justify-between md:table-cell items-center px-2 py-3 md:px-6 md:py-4 border-b border-[var(--glass-border)] md:border-0">
                       <span className="md:hidden font-semibold text-xs text-[var(--text-muted)] uppercase">สถานะ</span>
-                      <span className={`px-3 py-1.5 rounded-full text-xs font-semibold border shadow-sm ${
-                        tenant.status === 'active' ? 'bg-emerald-50/80 text-emerald-700 border-emerald-200 backdrop-blur-sm' :
-                        'bg-slate-50/80 text-slate-700 border-slate-200 backdrop-blur-sm'
-                      }`}>
-                        {tenant.status === 'active' ? 'เข้าพักอยู่' : 'ย้ายออกแล้ว'}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold border shadow-sm w-fit ${
+                          tenant.status === 'active' ? 'bg-emerald-50/80 text-emerald-700 border-emerald-200 backdrop-blur-sm' :
+                          'bg-slate-50/80 text-slate-700 border-slate-200 backdrop-blur-sm'
+                        }`}>
+                          {tenant.status === 'active' ? 'เข้าพักอยู่' : 'ย้ายออกแล้ว'}
+                        </span>
+                        {tenant.moveOutRequested && tenant.expectedMoveOutDate && (
+                          <span className={`px-2 py-1 rounded-md text-[10px] font-bold border shadow-sm w-fit ${
+                            new Date() >= (tenant.expectedMoveOutDate.toDate ? tenant.expectedMoveOutDate.toDate() : new Date(tenant.expectedMoveOutDate)) 
+                            ? 'bg-red-50 text-red-600 border-red-200' 
+                            : 'bg-amber-50 text-amber-600 border-amber-200'
+                          }`}>
+                            {new Date() >= (tenant.expectedMoveOutDate.toDate ? tenant.expectedMoveOutDate.toDate() : new Date(tenant.expectedMoveOutDate)) 
+                              ? 'ครบกำหนดย้ายออก' 
+                              : `แจ้งย้ายออก (ออก: ${new Intl.DateTimeFormat('th-TH', { day: '2-digit', month: 'short', year: 'numeric' }).format(tenant.expectedMoveOutDate.toDate ? tenant.expectedMoveOutDate.toDate() : new Date(tenant.expectedMoveOutDate))})`
+                            }
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="flex justify-end gap-2 md:table-cell px-2 py-3 md:px-6 md:py-4 text-right mt-2 md:mt-0">
                        <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-70 group-hover:opacity-100 transition-opacity">
                           <button 
                             onClick={() => handleMoveOut(tenant)}
-                            className="px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-all shadow-sm flex items-center gap-1.5" 
+                            className={`px-3 py-1.5 text-xs font-bold border rounded-lg transition-all shadow-sm flex items-center gap-1.5 ${
+                              tenant.moveOutRequested && tenant.expectedMoveOutDate && new Date() >= (tenant.expectedMoveOutDate.toDate ? tenant.expectedMoveOutDate.toDate() : new Date(tenant.expectedMoveOutDate))
+                              ? 'bg-red-600 hover:bg-red-700 text-white border-red-700 animate-pulse shadow-red-500/30'
+                              : 'text-red-600 bg-red-50 hover:bg-red-100 border-red-200'
+                            }`}
                             title="ย้ายออก"
                           >
                              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>

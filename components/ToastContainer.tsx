@@ -2,46 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { EVENT_NAME, ToastEvent, ToastType } from "@/lib/toast";
+import { CheckCircle2, XCircle, AlertTriangle, Info, X } from "lucide-react";
 
 interface ToastItem extends ToastEvent {
   exiting?: boolean;
 }
 
 const ICONS: Record<ToastType, React.ReactNode> = {
-  success: (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-    </svg>
-  ),
-  error: (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-    </svg>
-  ),
-  warning: (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-    </svg>
-  ),
-  info: (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-    </svg>
-  ),
-};
-
-const COLORS: Record<ToastType, string> = {
-  success: "text-emerald-700 bg-emerald-50 border-emerald-200",
-  error: "text-red-700 bg-red-50 border-red-200",
-  warning: "text-amber-700 bg-amber-50 border-amber-200",
-  info: "text-blue-700 bg-blue-50 border-blue-200",
-};
-
-const ICON_COLORS: Record<ToastType, string> = {
-  success: "text-emerald-500",
-  error: "text-red-500",
-  warning: "text-amber-500",
-  info: "text-blue-500",
+  success: <CheckCircle2 className="w-5 h-5 text-emerald-500" strokeWidth={2} />,
+  error: <XCircle className="w-5 h-5 text-rose-500" strokeWidth={2} />,
+  warning: <AlertTriangle className="w-5 h-5 text-amber-500" strokeWidth={2} />,
+  info: <Info className="w-5 h-5 text-blue-500" strokeWidth={2} />,
 };
 
 const DURATION = 4000;
@@ -64,25 +35,27 @@ export default function ToastContainer() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-5 right-5 z-[99999] flex flex-col gap-3 pointer-events-none max-w-sm w-full">
+    <div className="fixed top-5 right-5 sm:top-8 sm:right-8 z-[99999] flex flex-col gap-3 pointer-events-none max-w-sm w-full">
       {toasts.map(t => (
         <div
           key={t.id}
           className={`
-            flex items-start gap-3 px-4 py-3.5 rounded-xl border shadow-lg backdrop-blur-md
-            animate-in slide-in-from-right-4 duration-300 pointer-events-auto
-            ${COLORS[t.type]}
+            group flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl
+            border border-slate-200/50 dark:border-zinc-800 shadow-[0_8px_30px_rgb(0,0,0,0.08)]
+            animate-in slide-in-from-top-5 sm:slide-in-from-right-5 fade-in duration-300 pointer-events-auto
           `}
         >
-          <span className={`mt-0.5 flex-shrink-0 ${ICON_COLORS[t.type]}`}>{ICONS[t.type]}</span>
-          <p className="text-sm font-semibold leading-relaxed flex-1">{t.message}</p>
+          <div className="flex-shrink-0 flex items-center justify-center">
+            {ICONS[t.type]}
+          </div>
+          <p className="text-[13px] sm:text-sm font-medium text-slate-700 dark:text-slate-200 leading-snug flex-1">
+            {t.message}
+          </p>
           <button
             onClick={() => setToasts(prev => prev.filter(x => x.id !== t.id))}
-            className="flex-shrink-0 opacity-50 hover:opacity-100 transition-opacity mt-0.5"
+            className="flex-shrink-0 p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-zinc-800 dark:hover:text-slate-200 transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
+            <X className="w-4 h-4" strokeWidth={2.5} />
           </button>
         </div>
       ))}
