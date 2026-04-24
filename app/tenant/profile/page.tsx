@@ -175,6 +175,16 @@ export default function TenantProfile() {
     <div className="max-w-2xl mx-auto space-y-8 p-4 md:p-8">
 
       <div className="flex items-center gap-3 mb-2">
+        <button
+          onClick={() => router.back()}
+          className="p-2 rounded-xl hover:bg-white/60 transition-colors text-[var(--text-muted)] hover:text-[var(--text-main)]"
+          aria-label="ย้อนกลับ"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
+        </button>
         <h1 className="text-3xl font-bold text-[var(--text-main)] tracking-tight">
           โปรไฟล์ผู้เช่า
         </h1>
