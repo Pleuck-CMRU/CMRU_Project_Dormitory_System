@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, signOut } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile, signOut } from "firebase/auth";
 import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useAuth } from "@/components/AuthProvider";
@@ -77,9 +77,17 @@ export default function Register() {
         createdAt: new Date().toISOString()
       });
 
-      // 4. ส่งลิงก์ยืนยันอีเมลและออกจากระบบ
-      await sendEmailVerification(newUser);
+      // 4. ส่ง custom HTML email ผ่าน API route แล้วออกจากระบบ
       await signOut(auth);
+      const res = await fetch("/api/send-verification-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: formData.email, name: formData.name }),
+      });
+      if (!res.ok) {
+        // ถ้า API ล้มเหลว ยังคง set verificationSent เพื่อไม่ให้ user ค้างอยู่หน้านี้
+        console.error("Failed to send custom verification email");
+      }
       setVerificationSent(true);
     } catch (err: any) {
       if (err.code !== "auth/email-already-in-use" && err.code !== "auth/weak-password" && err.code !== "permission-denied") {
