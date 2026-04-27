@@ -135,7 +135,38 @@ export async function POST(req: NextRequest) {
 
     const slipokData = await slipokResponse.json();
 
-    // ---- เพิ่ม counter +1 เมื่อเรียก SlipOK สำเร็จ ----
+    // ---- ตรวจสอบผล SlipOK: code 200 = สำเร็จ, อื่นๆ = error ----
+    // SlipOK ไม่ใช้ success:true แต่ใช้ code:200 แทน
+    const slipCode = slipokData?.code;
+    const isSlipValid = slipCode === 200;
+
+    if (!isSlipValid) {
+      // แปลง error code ให้เป็นข้อความที่เข้าใจง่าย
+      const slipErrorMessages: Record<number, string> = {
+        1000: "ไม่พบข้อมูล QR Code ในสลิป",
+        1001: "Branch ID ไม่ถูกต้อง กรุณาติดต่อผู้ดูแลระบบ",
+        1002: "API Key ไม่ถูกต้อง กรุณาติดต่อผู้ดูแลระบบ",
+        1003: "แพ็กเกจ SlipOK หมดอายุ กรุณาติดต่อผู้ดูแลระบบ",
+        1004: "โควตาการตรวจสอบสลิปเต็มแล้ว",
+        1005: "รูปแบบไฟล์ไม่รองรับ (รองรับ JPG, PNG, WEBP)",
+        1006: "ไฟล์รูปภาพไม่ถูกต้อง",
+        1007: "ไม่พบ QR Code ในรูปภาพ กรุณาถ่ายสลิปใหม่ให้ชัดเจน",
+        1008: "QR Code นี้ไม่ใช่สลิปการชำระเงิน",
+        1009: "ธนาคารไม่พร้อมให้บริการชั่วคราว กรุณาลองใหม่ใน 15 นาที",
+        1010: "ธนาคารประมวลผลล่าช้า กรุณาลองใหม่อีกครั้ง",
+        1011: "QR Code หมดอายุหรือไม่มีในระบบธนาคาร",
+        1012: "สลิปนี้ถูกใช้ยืนยันไปแล้ว",
+        1013: "ยอดเงินในสลิปไม่ตรงกับที่ต้องชำระ",
+        1014: "บัญชีผู้รับเงินไม่ตรงกับที่ลงทะเบียนไว้",
+      };
+      const errorMsg = slipErrorMessages[slipCode] ?? slipokData?.message ?? "สลิปไม่ถูกต้อง หรือไม่สามารถตรวจพบ QR Code ได้";
+      return NextResponse.json(
+        { success: false, message: errorMsg, code: slipCode },
+        { status: 400 }
+      );
+    }
+
+    // ---- เพิ่ม counter +1 เฉพาะเมื่อสลิปถูกต้อง ----
     await usageRef.set(
       {
         count: currentCount + 1,
@@ -145,25 +176,22 @@ export async function POST(req: NextRequest) {
       { merge: true }
     );
 
-    // ---- อัปเดตสถานะบิลใน Firestore ถ้าสลิปถูกต้อง ----
-    // เช็คว่า SlipOK คืนค่า success: true และ data.success เป็น true ด้วย
-    const isSlipValid = slipokData?.success === true || slipokData?.data?.success === true;
+    // ---- ตรวจสอบยอดเงิน (Amount) ----
+    // SlipOK คืน amount ใน slipokData.data.amount
+    const slipAmount = slipokData?.data?.amount;
     
-    if (!isSlipValid) {
+    if (slipAmount === undefined || slipAmount === null) {
       return NextResponse.json(
-        { success: false, message: "สลิปไม่ถูกต้อง หรือไม่สามารถตรวจพบ QR Code ได้" },
+        { success: false, message: "ไม่สามารถอ่านยอดเงินจากสลิปได้ กรุณาลองใหม่อีกครั้ง" },
         { status: 400 }
       );
     }
 
-    // ---- ตรวจสอบยอดเงิน (Amount) ----
-    const slipAmount = slipokData?.data?.amount ?? slipokData?.data?.data?.amount;
-    
     if (Number(slipAmount) !== Number(expectedAmount)) {
       return NextResponse.json(
         { 
           success: false, 
-          message: `ยอดเงินไม่ตรงกัน! ยอดที่ต้องชำระ: ฿${expectedAmount} แต่ยอดโอนจริง: ฿${slipAmount ?? 0}` 
+          message: `ยอดเงินไม่ตรงกัน! ยอดที่ต้องชำระ: ฿${expectedAmount.toLocaleString()} แต่ยอดโอนจริง: ฿${Number(slipAmount).toLocaleString()}` 
         },
         { status: 400 }
       );
