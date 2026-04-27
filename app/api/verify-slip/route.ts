@@ -135,12 +135,14 @@ export async function POST(req: NextRequest) {
 
     const slipokData = await slipokResponse.json();
 
-    // ---- ตรวจสอบผล SlipOK: code 200 = สำเร็จ, อื่นๆ = error ----
-    // SlipOK ไม่ใช้ success:true แต่ใช้ code:200 แทน
-    const slipCode = slipokData?.code;
-    const isSlipValid = slipCode === 200;
+    // ---- ตรวจสอบผล SlipOK ----
+    // สลิปสำเร็จจะคืนค่า { success: true, data: {...} } 
+    // ส่วนถ้ามี Error จะคืนค่า { code: 100x, message: "..." }
+    const isSlipValid = slipokData?.success === true || slipokData?.data?.success === true;
 
     if (!isSlipValid) {
+      const slipCode = slipokData?.code;
+      
       // แปลง error code ให้เป็นข้อความที่เข้าใจง่าย
       const slipErrorMessages: Record<number, string> = {
         1000: "ไม่พบข้อมูล QR Code ในสลิป",
@@ -159,7 +161,11 @@ export async function POST(req: NextRequest) {
         1013: "ยอดเงินในสลิปไม่ตรงกับที่ต้องชำระ",
         1014: "บัญชีผู้รับเงินไม่ตรงกับที่ลงทะเบียนไว้",
       };
-      const errorMsg = slipErrorMessages[slipCode] ?? slipokData?.message ?? "สลิปไม่ถูกต้อง หรือไม่สามารถตรวจพบ QR Code ได้";
+      
+      const errorMsg = (slipCode ? slipErrorMessages[slipCode] : undefined) 
+        ?? slipokData?.message 
+        ?? "สลิปไม่ถูกต้อง หรือไม่สามารถตรวจพบ QR Code ได้";
+        
       return NextResponse.json(
         { success: false, message: errorMsg, code: slipCode },
         { status: 400 }
