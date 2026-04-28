@@ -31,7 +31,7 @@ export default function HomeClient({ initialSettings }: { initialSettings: any }
           }
         });
       },
-      { threshold: 0.4 } // เปลี่ยนเป็น 0.4 เพื่อให้จับได้เร็วขึ้นเวลา Scroll
+      { threshold: 0.4 } // เปลี่ยนเป็น 0.4 เพื่อให้จับได้เร็วขึ้นเวลา Scroll.
     );
 
     const sections = document.querySelectorAll("section[id]");
