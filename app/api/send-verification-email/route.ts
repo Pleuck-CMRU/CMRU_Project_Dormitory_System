@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminAuth } from "@/lib/firebase-admin";
+import { getAdminAuth } from "@/lib/firebase-admin";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     // สร้าง email verification link ด้วย Firebase Admin
-    const verificationLink = await adminAuth.generateEmailVerificationLink(email, {
+    const verificationLink = await getAdminAuth().generateEmailVerificationLink(email, {
       url: `${process.env.NEXT_PUBLIC_APP_URL}/auth/login?verified=1`,
     });
 
