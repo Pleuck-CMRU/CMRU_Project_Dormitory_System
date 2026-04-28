@@ -65,8 +65,10 @@ export default function Login() {
     } catch (err: any) {
       if (err.code !== "auth/invalid-credential") {
         console.error("Login Error:", err);
+        setError(`เกิดข้อผิดพลาด: ${err.message}`);
+      } else {
+        setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
       }
-      setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
       setIsLoggingIn(false);
     }
   };

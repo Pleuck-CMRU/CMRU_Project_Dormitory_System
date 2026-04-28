@@ -112,7 +112,7 @@ export default function Register() {
       } else if (err.code === "permission-denied") {
         setError("ไม่มีสิทธิ์ในการสร้างข้อมูลผู้ใช้งาน");
       } else {
-        setError("เกิดข้อผิดพลาดในการสมัครสมาชิก กรุณาลองใหม่อีกครั้ง");
+        setError(`เกิดข้อผิดพลาดในการสมัครสมาชิก: ${err.message || "กรุณาลองใหม่อีกครั้ง"}`);
       }
     } finally {
       setIsRegistering(false);
