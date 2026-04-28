@@ -111,6 +111,8 @@ export default function Register() {
         setError("รหัสควรมีความยาวอย่างน้อย 6 ตัวอักษร");
       } else if (err.code === "permission-denied") {
         setError("ไม่มีสิทธิ์ในการสร้างข้อมูลผู้ใช้งาน");
+      } else if (err.code === "auth/too-many-requests") {
+        setError("คุณพยายามทำรายการบ่อยเกินไป กรุณารอสักครู่แล้วค่อยลองใหม่อีกครั้ง");
       } else {
         setError(`เกิดข้อผิดพลาดในการสมัครสมาชิก: ${err.message || "กรุณาลองใหม่อีกครั้ง"}`);
       }

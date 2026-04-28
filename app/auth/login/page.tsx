@@ -63,7 +63,9 @@ export default function Login() {
 
       // ผู้ใช้จะถูกเปลี่ยนหน้าอัตโนมัติผ่าน useEffect
     } catch (err: any) {
-      if (err.code !== "auth/invalid-credential") {
+      if (err.code === "auth/too-many-requests") {
+        setError("คุณพยายามเข้าสู่ระบบบ่อยเกินไป กรุณารอสักครู่แล้วค่อยลองใหม่อีกครั้ง");
+      } else if (err.code !== "auth/invalid-credential") {
         console.error("Login Error:", err);
         setError(`เกิดข้อผิดพลาด: ${err.message}`);
       } else {
