@@ -155,6 +155,12 @@ export default function RepairRequestPage() {
 
         {/* ข้อมูลตาราง */}
         <div className="overflow-x-auto min-h-[400px]">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16 space-y-3 text-[var(--text-muted)] font-medium text-lg">
+              <div className="w-10 h-10 border-4 border-[var(--accent-light)] border-t-[var(--accent-brown)] rounded-full animate-spin"></div>
+              <span>กำลังโหลดข้อมูล...</span>
+            </div>
+          ) : (
           <table className="w-full text-sm text-left relative z-10 border-collapse block md:table">
             <thead className="hidden md:table-header-group text-xs text-[var(--text-muted)] bg-[var(--glass-bg)] uppercase border-b border-[var(--glass-border)] sticky top-0 z-20 backdrop-blur-md">
               <tr>
@@ -166,16 +172,7 @@ export default function RepairRequestPage() {
               </tr>
             </thead>
             <tbody className="block md:table-row-group">
-              {loading ? (
-                <tr>
-                   <td colSpan={5} className="px-6 py-16 text-center text-[var(--text-muted)] font-medium text-lg">
-                      <div className="flex flex-col items-center justify-center space-y-3">
-                         <div className="w-10 h-10 border-4 border-[var(--accent-light)] border-t-[var(--accent-brown)] rounded-full animate-spin"></div>
-                         <span>กำลังโหลดข้อมูล...</span>
-                      </div>
-                   </td>
-                </tr>
-              ) : filteredRequests.length === 0 ? (
+              {filteredRequests.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-16 text-center text-[var(--text-muted)] font-medium text-lg">
                     <div className="flex flex-col items-center justify-center space-y-3">
@@ -245,6 +242,7 @@ export default function RepairRequestPage() {
               )}
             </tbody>
           </table>
+          )}
         </div>
       </div>
     </div>

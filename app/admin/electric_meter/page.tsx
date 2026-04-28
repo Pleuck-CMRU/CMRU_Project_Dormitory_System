@@ -371,13 +371,13 @@ export default function ElectricMeterPage() {
         {/* Controls */}
         <div className="flex flex-col md:flex-row gap-4 items-end justify-between bg-white/40 p-4 rounded-2xl border border-[var(--glass-border)]">
           <div className="flex flex-wrap gap-4 w-full md:w-auto">
-            <div className="space-y-2">
+            <div className="space-y-2 min-w-0">
               <label className="text-sm font-bold text-[var(--text-main)]">เดือนประจำบิล</label>
               <input 
                 type="month" 
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="glass-input px-4 py-2.5 rounded-xl font-bold text-gray-800 w-full"
+                className="glass-input px-4 py-2.5 rounded-xl font-bold text-gray-800 w-full min-w-[180px] overflow-hidden"
               />
             </div>
             
