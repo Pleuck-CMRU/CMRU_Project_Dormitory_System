@@ -174,6 +174,18 @@ export default function Register() {
       <div className="absolute top-[30%] left-[-10%] w-72 h-72 bg-[var(--accent-brown)] rounded-full mix-blend-multiply filter blur-3xl opacity-20 pointer-events-none" />
       <div className="absolute bottom-[-15%] right-[25%] w-80 h-80 bg-[var(--accent-light)] rounded-full mix-blend-multiply filter blur-3xl opacity-40 pointer-events-none" />
 
+      {/* ปุ่มกลับหน้าแรกแบบลอยตัว (Floating Back Button) */}
+      <Link 
+        href="/" 
+        className="absolute top-6 left-6 md:top-8 md:left-8 z-50 flex items-center justify-center gap-2 px-3 py-3 md:px-4 md:py-2.5 rounded-full bg-white/60 backdrop-blur-xl border border-white/50 text-[var(--text-main)] shadow-sm hover:bg-white/90 hover:shadow-md hover:scale-105 active:scale-95 transition-all group"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="group-hover:-translate-x-1 transition-transform">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        <span className="text-sm font-bold hidden sm:block">กลับหน้าแรก</span>
+      </Link>
+
       {/* การ์ดหลัก */}
       <div className="w-full max-w-md relative z-10">
         <div className="glass-panel rounded-3xl px-8 py-10 shadow-xl">
@@ -343,17 +355,6 @@ export default function Register() {
               เข้าสู่ระบบ
             </Link>
           </p>
-
-          {/* กลับหน้าแรก */}
-          <div className="mt-6 pt-5 border-t border-[var(--glass-border)] text-center">
-            <Link href="/" className="text-sm text-[var(--text-muted)] hover:text-[var(--accent-brown)] transition-colors inline-flex items-center justify-center gap-1.5">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="19" y1="12" x2="5" y2="12"></line>
-                <polyline points="12 19 5 12 12 5"></polyline>
-              </svg>
-              กลับหน้าแรก
-            </Link>
-          </div>
         </div>
       </div>
     </div>

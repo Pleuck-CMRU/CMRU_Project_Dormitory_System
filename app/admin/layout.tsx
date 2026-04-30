@@ -165,31 +165,30 @@ export default function AdminLayout({
 
       {/* เมนูแบบ Full Screen สำหรับมือถือ (แนว Settings App) */}
       {drawerOpen && (
-        <div className="md:hidden fixed inset-0 z-[60] bg-[#f2f2f7] animate-in slide-in-from-bottom-5 fade-in duration-300 flex flex-col">
+        <div className="md:hidden fixed inset-0 z-[60] bg-[var(--bg-color)]/95 backdrop-blur-2xl animate-in slide-in-from-bottom-5 fade-in duration-300 flex flex-col">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 pb-3 pt-[max(env(safe-area-inset-top),20px)] bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+          <div className="flex items-center justify-between px-4 pb-3 pt-[max(env(safe-area-inset-top),20px)] bg-transparent sticky top-0 z-10">
             <div className="flex-1"></div>
-            <h2 className="text-xl font-bold text-center text-gray-900 flex-1">เมนู</h2>
+            <h2 className="text-xl font-bold text-center text-[var(--text-main)] flex-1">เมนู</h2>
             <div className="flex-1 flex justify-end">
               <button onClick={() => setDrawerOpen(false)} className="text-[var(--accent-brown)] font-semibold text-base bg-transparent active:opacity-70 transition-opacity p-2 -mr-2">
-                เสร็จสิ้น
+                ปิด
               </button>
             </div>
           </div>
 
           {/* เนื้อหาเมนู (Scrollable) */}
-          <div className="flex-1 overflow-y-auto pb-[max(env(safe-area-inset-bottom),24px)] pt-5 px-4 bg-[#f2f2f7] custom-scrollbar">
+          <div className="flex-1 overflow-y-auto pb-[max(env(safe-area-inset-bottom),24px)] pt-2 px-4 bg-transparent custom-scrollbar">
             
             {/* กล่องเมนูกลุ่มต่างๆ */}
             {[
-              { title: "ภาพรวม", hrefs: ["/admin/dashboard"] },
-              { title: "การจัดการหอพัก", hrefs: ["/admin/manage_tenants", "/admin/rooms", "/admin/room_requests"] },
-              { title: "บริการและการเงิน", hrefs: ["/admin/electric_meter", "/admin/bills_payments", "/admin/repair_request", "/admin/chat"] },
+              { title: "การจัดการหอพัก", hrefs: ["/admin/manage_tenants", "/admin/rooms"] },
+              { title: "บริการและการเงิน", hrefs: ["/admin/electric_meter", "/admin/bills_payments"] },
               { title: "ระบบและอื่นๆ", hrefs: ["/admin/report", "/admin/settings"] }
             ].map((group, groupIdx) => (
               <div key={groupIdx} className="mb-6">
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 ml-4">{group.title}</h3>
-                <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+                <h3 className="text-[11px] font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 ml-4">{group.title}</h3>
+                <div className="glass-panel rounded-3xl overflow-hidden shadow-sm border border-[var(--glass-border)]">
                   {group.hrefs.map((href, index) => {
                     const item = NAV_ITEMS.find(i => i.href === href);
                     if (!item) return null;
@@ -201,19 +200,19 @@ export default function AdminLayout({
                         key={href}
                         href={href}
                         onClick={() => setDrawerOpen(false)}
-                        className="flex items-center justify-between p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors relative"
+                        className={`flex items-center justify-between p-4 transition-colors relative ${isActive ? "bg-white/40" : "hover:bg-white/20 active:bg-white/30"}`}
                       >
                         {/* เส้นคั่นบางๆ สำหรับไอเท็มที่ 2 ขึ้นไป */}
-                        {index > 0 && <div className="absolute top-0 left-[68px] right-0 h-[1px] bg-gray-100"></div>}
+                        {index > 0 && <div className="absolute top-0 left-[68px] right-0 h-[1px] bg-[var(--glass-border)]/50"></div>}
                         
                         <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 flex items-center justify-center transition-all duration-300 ${isActive ? "text-[var(--accent-brown)] scale-110" : "text-[var(--accent-brown)] opacity-80"}`}>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-300 ${isActive ? "bg-gradient-to-br from-[var(--accent-brown)] to-[var(--accent-dark)] text-white shadow-md scale-105" : "text-[var(--accent-brown)] opacity-90 bg-white/50"}`}>
                             <div className="scale-[1.1]">
                                {item.icon}
                             </div>
                           </div>
                           <div className="flex flex-col">
-                            <span className={`text-[15.5px] font-semibold transition-colors ${isActive ? "text-[var(--accent-brown)]" : "text-gray-700"}`}>
+                            <span className={`text-[15px] font-bold transition-colors ${isActive ? "text-[var(--text-main)]" : "text-[var(--text-main)]/80"}`}>
                               {item.label}
                             </span>
                           </div>
@@ -221,11 +220,11 @@ export default function AdminLayout({
                         
                         <div className="flex items-center gap-3">
                           {item.href === "/admin/chat" && chatUnreadCount > 0 && (
-                            <span className="bg-red-500 text-white min-w-[22px] h-5 px-1.5 flex items-center justify-center rounded-full text-xs font-bold">
+                            <span className="bg-red-500 text-white min-w-[22px] h-5 px-1.5 flex items-center justify-center rounded-full text-xs font-bold shadow-sm">
                               {chatUnreadCount > 99 ? "99+" : chatUnreadCount}
                             </span>
                           )}
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-[var(--text-muted)] opacity-50" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                         </div>
                       </Link>
                     );
@@ -235,20 +234,20 @@ export default function AdminLayout({
             ))}
             
             {/* ออกจากระบบ */}
-            <div className="mb-8 mt-2">
+            <div className="mb-8 mt-4">
               <button
                 onClick={() => { setDrawerOpen(false); setShowLogoutModal(true); }}
-                className="w-full flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm border border-red-50 active:bg-red-50 transition-colors"
+                className="w-full flex items-center justify-between p-4 glass-panel rounded-3xl shadow-sm border border-red-200/50 hover:bg-red-50/50 active:bg-red-100/50 transition-colors"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 flex items-center justify-center text-red-500 transition-transform hover:scale-110">
+                  <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center text-red-500 transition-transform hover:scale-110">
                     <div className="scale-[1.1]">
                       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
                     </div>
                   </div>
-                  <span className="text-[15px] font-semibold text-red-500">ออกจากระบบ</span>
+                  <span className="text-[15px] font-bold text-red-500">ออกจากระบบ</span>
                 </div>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fca5a5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-red-300" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
             </div>
             
@@ -284,41 +283,35 @@ export default function AdminLayout({
           </NotificationProvider>
         </main>
         
-        {/* แถบนำทางด้านล่างสำหรับมือถือ */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-xl border-t border-slate-200/60 pb-[max(env(safe-area-inset-bottom),12px)] pt-2 shadow-[0_-4px_24px_rgba(0,0,0,0.04)] print:hidden transition-all">
-          <div className="flex items-center justify-around px-1 max-w-md mx-auto">
+        {/* แถบนำทางด้านล่างสำหรับมือถือ (Floating Capsule Design) */}
+        <nav className="md:hidden fixed bottom-6 left-4 right-4 z-40 glass-panel !rounded-[2rem] px-2 py-2.5 shadow-[0_8px_32px_rgba(198,124,78,0.15)] print:hidden transition-all border border-white/60">
+          <div className="flex items-center justify-between px-2 max-w-md mx-auto">
             {[
-              { href: "/admin/dashboard", label: "หน้าหลัก", icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg> },
-              { href: "/admin/room_requests", label: "คำขอ", icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg> },
-              { href: "/admin/repair_request", label: "แจ้งซ่อม", icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> },
-              { href: "/admin/chat", label: "แชท", icon: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, badge: chatUnreadCount },
+              { href: "/admin/dashboard", label: "หน้าหลัก", icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg> },
+              { href: "/admin/room_requests", label: "คำขอ", icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg> },
+              { href: "/admin/repair_request", label: "แจ้งซ่อม", icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> },
+              { href: "/admin/chat", label: "แชท", icon: <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>, badge: chatUnreadCount },
             ].map(item => {
-              const isActive = pathname === item.href;
+              const isActive = pathname === item.href && !drawerOpen;
               return (
-                <Link key={item.href} href={item.href} className="flex flex-col items-center gap-1 min-w-[3.5rem] sm:min-w-[4rem] group" prefetch={true}>
-                  <div className={`relative p-1.5 rounded-xl transition-all duration-300 ease-out ${isActive ? "text-[var(--accent-brown)] bg-orange-50 scale-110" : "text-slate-400 group-hover:text-slate-600 group-hover:scale-105"}`}>
+                <Link key={item.href} href={item.href} onClick={() => setDrawerOpen(false)} className="flex flex-col items-center gap-1 min-w-[3.5rem] relative group" prefetch={true}>
+                  <div className={`relative p-2.5 rounded-2xl transition-all duration-300 ease-out ${isActive ? "text-white bg-gradient-to-br from-[var(--accent-brown)] to-[var(--accent-dark)] shadow-md scale-110" : "text-[var(--text-muted)] group-hover:text-[var(--accent-brown)] group-hover:bg-white/40"}`}>
                     {item.icon}
                     {item.badge && item.badge > 0 ? (
-                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold px-1.5 min-w-[16px] h-4 rounded-full flex items-center justify-center border border-white">
+                      <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold px-1.5 min-w-[18px] h-[18px] rounded-full flex items-center justify-center border-2 border-white shadow-sm">
                         {item.badge > 99 ? "99+" : item.badge}
                       </span>
                     ) : null}
                   </div>
-                  <span className={`text-[10px] sm:text-xs transition-all duration-300 ${isActive ? "font-bold text-[var(--accent-dark)]" : "font-medium text-slate-500"}`}>
-                    {item.label}
-                  </span>
                 </Link>
               );
             })}
             
             {/* ปุ่มเปิดเมนู */}
-            <button onClick={() => setDrawerOpen((prev) => !prev)} className="flex flex-col items-center gap-1 min-w-[3.5rem] sm:min-w-[4rem] group">
-              <div className={`relative p-1.5 rounded-xl transition-all duration-300 ease-out ${drawerOpen ? "text-[var(--accent-brown)] bg-orange-50 scale-110" : "text-slate-400 group-hover:text-slate-600 group-hover:scale-105"}`}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+            <button onClick={() => setDrawerOpen((prev) => !prev)} className="flex flex-col items-center gap-1 min-w-[3.5rem] relative group">
+              <div className={`relative p-2.5 rounded-2xl transition-all duration-300 ease-out ${drawerOpen ? "text-white bg-gradient-to-br from-[var(--accent-brown)] to-[var(--accent-dark)] shadow-md scale-110" : "text-[var(--text-muted)] group-hover:text-[var(--accent-brown)] group-hover:bg-white/40"}`}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
               </div>
-              <span className={`text-[10px] sm:text-xs transition-all duration-300 ${drawerOpen ? "font-bold text-[var(--accent-dark)]" : "font-medium text-slate-500"}`}>
-                เมนู
-              </span>
             </button>
           </div>
         </nav>

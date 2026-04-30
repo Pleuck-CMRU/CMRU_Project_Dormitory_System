@@ -251,12 +251,20 @@ export default function AdminChatPage() {
     return acc;
   }, []);
 
-  const filteredTenants = tenants.filter(
-    (t) =>
+  const filteredTenants = tenants.filter((t) => {
+    const matchesSearch =
       t.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       t.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (t.roomNumber || "").includes(searchQuery)
-  );
+      (t.roomNumber || "").includes(searchQuery);
+
+    // ถ้ามีการค้นหา ให้แสดงผลลัพธ์ทั้งหมดที่ตรงกัน (เพื่อให้เริ่มแชทใหม่ได้)
+    if (searchQuery.trim() !== "") {
+      return matchesSearch;
+    }
+
+    // ถ้าไม่มีการค้นหา ให้แสดงเฉพาะผู้เช่าที่มีประวัติการแชท
+    return t.lastMessageTime !== null || t.lastMessage !== "";
+  });
 
   // หาข้อความปักหมุดล่าสุด
   const pinnedMsg = useMemo(() => {
