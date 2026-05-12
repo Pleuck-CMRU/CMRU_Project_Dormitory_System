@@ -133,7 +133,7 @@ export default function TenantRoomRequestPage() {
         return;
       }
 
-      // 2. ตรวจสอบว่าห้องนี้มีคนอื่นกดส่งคำขอไปแล้วแต่แอดมินยังไม่อนุมัติหรือไม่ (ป้องกันกดพร้อมกัน)
+      // ตรวจสอบว่าห้องนี้มีคนจองคิวแรกไปแล้วหรือยัง เพื่อกำหนดสถานะ (คิวแรก=pending_docs, คิวถัดไป=queued)
       const checkRoomQ = query(
         collection(db, "room_requests"),
         where("roomId", "==", selectedRoom.id),
@@ -141,13 +141,7 @@ export default function TenantRoomRequestPage() {
       );
       const roomSnapshot = await getDocs(checkRoomQ);
       
-      if (!roomSnapshot.empty) {
-        toast.warning("ขออภัย ห้องนี้เพิ่งมีผู้ใช้อื่นส่งคำขอไปและกำลังรอดำเนินการอยู่ กรุณาเลือกห้องอื่น");
-        setSubmitting(false);
-        setSelectedRoom(null);
-        setAvailableRooms(prev => prev.filter(r => r.id !== selectedRoom.id));
-        return;
-      }
+      const newStatus = roomSnapshot.empty ? "pending_docs" : "queued";
 
       // ดึงค่า depositFee จาก settings
       let depositFee = 5000;
@@ -164,7 +158,7 @@ export default function TenantRoomRequestPage() {
         building: selectedRoom.building,
         rentPrice: selectedRoom.rentPrice,
         depositFee: depositFee,
-        status: "pending_docs",
+        status: newStatus,
         createdAt: serverTimestamp(),
       });
 
@@ -193,8 +187,14 @@ export default function TenantRoomRequestPage() {
         console.warn("ไม่สามารถส่งแจ้งเตือนหาแอดมินได้ (Permission):", notifyErr);
       }
 
-      setSuccessMessage(`ส่งคำขอจองห้อง ${selectedRoom.building}${selectedRoom.roomNumber} เรียบร้อยแล้ว ระบบกำลังรอการอนุมัติจากผู้ดูแล`);
-      setAvailableRooms(prev => prev.filter(r => r.id !== selectedRoom.id));
+      setSuccessMessage(newStatus === "queued" 
+        ? `ลงทะเบียนรอคิวจองห้อง ${selectedRoom.building}${selectedRoom.roomNumber} เรียบร้อยแล้ว กรุณารอแอดมินแจ้งสิทธิ์การชำระเงิน` 
+        : `ส่งคำขอจองห้อง ${selectedRoom.building}${selectedRoom.roomNumber} เรียบร้อยแล้ว ระบบกำลังรอการอนุมัติจากผู้ดูแล`
+      );
+      // ไม่เอาห้องออกจากรายการถ้าเป็นการจองต่อคิว เพราะคนอื่นก็ยังมาต่อคิวได้อีก
+      if (newStatus !== "queued") {
+        setAvailableRooms(prev => prev.map(r => r.id === selectedRoom.id ? { ...r, status: "ติดจอง" } : r));
+      }
       setSelectedRoom(null);
     } catch (error: any) {
       console.error("Error requesting room:", error);
@@ -478,14 +478,16 @@ export default function TenantRoomRequestPage() {
                 
                 <button
                   onClick={() => setSelectedRoom(room)}
-                  disabled={room.status !== "ว่าง"}
+                  disabled={room.status === "มีคนเช่า" || (room.status !== "ว่าง" && room.status !== "ติดจอง")}
                   className={`w-full py-3 rounded-xl font-semibold text-sm tracking-wide transition-all ${
-                    room.status !== "ว่าง" 
+                    room.status === "มีคนเช่า" || (room.status !== "ว่าง" && room.status !== "ติดจอง")
                       ? "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200 shadow-none" 
-                      : "glass-button"
+                      : room.status === "ติดจอง" 
+                        ? "bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-200" 
+                        : "glass-button"
                   }`}
                 >
-                  {room.status === "ติดจอง" ? "ติดจองแล้ว" : room.status === "มีคนเช่า" ? "มีคนเช่าแล้ว" : room.status === "ว่าง" ? "ยื่นคำขอจองห้องนี้" : "ไม่พร้อมจอง"}
+                  {room.status === "ติดจอง" ? "จองต่อคิว" : room.status === "มีคนเช่า" ? "มีคนเช่าแล้ว" : room.status === "ว่าง" ? "ยื่นคำขอจองห้องนี้" : "ไม่พร้อมจอง"}
                 </button>
               </div>
             </div>

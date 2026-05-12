@@ -13,6 +13,7 @@ interface Bill {
   dueDate: string;
   roomNumber: string;
   building: string;
+  tenantName?: string;
   rentAmount: number;
   waterFee: number;
   electricFee: number;
@@ -42,6 +43,7 @@ export default function TenantBillsPaymentsPage() {
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [selectedBill, setSelectedBill] = useState<Bill | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [previewBill, setPreviewBill] = useState<Bill | null>(null);
 
   useEffect(() => {
     const fetchBills = async () => {
@@ -279,17 +281,26 @@ export default function TenantBillsPaymentsPage() {
                         <span className="font-bold text-[var(--text-main)] text-base">฿{(bill.totalAmount||0).toLocaleString()}</span>
                         <span className="text-xs text-[var(--text-muted)] ml-2">📅 {bill.dueDate||"-"}</span>
                       </div>
-                      {bill.status !== "paid" && (
+                      <div className="flex gap-2">
                         <button
-                          onClick={() => openPayModal(bill)}
-                          className="glass-button px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 shrink-0"
+                          onClick={() => setPreviewBill(bill)}
+                          className="glass-button-outline px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 shrink-0"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>
-                          </svg>
-                          ชำระเงิน
+                          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                          ดูบิล
                         </button>
-                      )}
+                        {bill.status !== "paid" && (
+                          <button
+                            onClick={() => openPayModal(bill)}
+                            className="glass-button px-3 py-1.5 text-xs font-bold rounded-lg flex items-center gap-1.5 shrink-0"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>
+                            </svg>
+                            ชำระเงิน
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -338,17 +349,26 @@ export default function TenantBillsPaymentsPage() {
                           </span>
                         </td>
                         <td className="px-5 py-4 text-right">
-                          {bill.status !== "paid" && (
+                          <div className="flex items-center justify-end gap-2">
                             <button
-                              onClick={() => openPayModal(bill)}
-                              className="glass-button px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 ml-auto shrink-0"
+                              onClick={() => setPreviewBill(bill)}
+                              className="p-2 text-[var(--text-muted)] hover:text-blue-600 hover:bg-blue-50 border border-transparent hover:border-blue-200 rounded-lg transition-all"
+                              title="ดูใบเสร็จ"
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                <rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>
-                              </svg>
-                              ชำระเงิน
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                             </button>
-                          )}
+                            {bill.status !== "paid" && (
+                              <button
+                                onClick={() => openPayModal(bill)}
+                                className="glass-button px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-1.5 shrink-0"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>
+                                </svg>
+                                ชำระเงิน
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -366,6 +386,96 @@ export default function TenantBillsPaymentsPage() {
           </div>
         )}
       </div>
+
+      {/* ============ Modal ดูบิล (Preview) ============ */}
+      {previewBill && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setPreviewBill(null)} />
+          <div className="relative bg-white w-[95%] max-w-lg rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 overflow-y-auto max-h-[90vh] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="h-2 bg-gradient-to-r from-[#8B5E3C] via-[#C4874F] to-[#E5B07A]" />
+            <div className="p-6 sm:p-8">
+              {/* หัวบิล */}
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-8 h-8 rounded-lg bg-[#8B5E3C] flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </div>
+                    <h2 className="text-xl font-extrabold text-gray-900 tracking-tight">ใบเสร็จรับเงิน</h2>
+                  </div>
+                  <p className="text-sm text-gray-400 font-medium">หอพักหยาหยี๋ (Yayee Dormitory)</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest">เดือน</p>
+                  <p className="text-lg font-extrabold text-[#8B5E3C]">{formatMonth(previewBill.month)}</p>
+                </div>
+              </div>
+              {/* ข้อมูลผู้เช่า */}
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {previewBill.tenantName && (
+                  <div className="bg-gray-50 rounded-2xl px-4 py-3 border border-gray-100 col-span-2">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">ผู้เช่า</p>
+                    <p className="text-sm font-bold text-gray-800">{previewBill.tenantName}</p>
+                  </div>
+                )}
+                <div className="bg-gray-50 rounded-2xl px-4 py-3 border border-gray-100 col-span-2">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">ห้องพัก</p>
+                  <p className="text-sm font-bold text-gray-800">ตึก {previewBill.building} ห้อง {previewBill.roomNumber}</p>
+                </div>
+                <div className="bg-gray-50 rounded-2xl px-4 py-3 border border-gray-100 col-span-2">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">กำหนดชำระเงิน</p>
+                  <p className="text-sm font-bold text-gray-800">📅 {previewBill.dueDate}</p>
+                </div>
+              </div>
+              {/* รายการ */}
+              <div className="border border-gray-100 rounded-2xl overflow-hidden mb-6">
+                <div className="bg-gray-50 px-5 py-2.5 border-b border-gray-100">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">รายละเอียดค่าใช้จ่าย</p>
+                </div>
+                <div className="divide-y divide-gray-50">
+                  {[{icon:'🏠',label:'ค่าเช่าห้องพัก',val:previewBill.rentAmount},{icon:'💧',label:'ค่าน้ำประปา',val:previewBill.waterFee},{icon:'⚡',label:'ค่าไฟฟ้า',val:previewBill.electricFee},{icon:'🗑️',label:'ค่าขยะ',val:previewBill.garbageFee}].map(item=>(
+                    <div key={item.label} className="flex justify-between items-center px-5 py-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center text-sm border border-gray-100">{item.icon}</span>
+                        <span className="text-sm font-semibold text-gray-700">{item.label}</span>
+                      </div>
+                      <span className="text-sm font-bold text-gray-900">฿{(item.val||0).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-gradient-to-r from-[#8B5E3C]/10 to-[#C4874F]/10 px-5 py-4 border-t-2 border-[#8B5E3C]/20 flex justify-between items-center">
+                  <span className="text-base font-extrabold text-gray-800">ยอดรวมทั้งสิ้น</span>
+                  <span className="text-2xl font-extrabold text-[#8B5E3C]">฿{(previewBill.totalAmount||0).toLocaleString()}</span>
+                </div>
+              </div>
+              {/* สถานะ */}
+              <div className="flex items-center justify-center mb-6">
+                {previewBill.status === 'paid' ? (
+                  <span className="inline-flex items-center gap-2 px-5 py-2 bg-emerald-50 text-emerald-700 border-2 border-emerald-300 rounded-full font-bold text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    ชำระเงินแล้ว
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-2 px-5 py-2 bg-amber-50 text-amber-700 border-2 border-amber-200 rounded-full font-bold text-sm">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    รอการชำระเงิน
+                  </span>
+                )}
+              </div>
+              <p className="text-center text-[10px] text-gray-300 font-medium">ขอบคุณที่ใช้บริการ · Yayee Dormitory Management System</p>
+            </div>
+            <div className="px-6 sm:px-8 pb-6 flex justify-end gap-3">
+              <button onClick={() => setPreviewBill(null)} className="px-5 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl font-semibold transition-colors text-sm">ปิด</button>
+              {previewBill.status !== 'paid' && (
+                <button onClick={() => { setPreviewBill(null); openPayModal(previewBill); }} className="px-5 py-2.5 bg-[#8B5E3C] hover:bg-[#734A2E] text-white rounded-xl font-bold flex items-center gap-2 transition-colors shadow-sm text-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+                  ชำระเงิน
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ============ Modal ชำระเงิน ============ */}
       {isPayModalOpen && selectedBill && (

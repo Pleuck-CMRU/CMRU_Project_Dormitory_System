@@ -1059,7 +1059,7 @@ export default function BillsPaymentsPage() {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm print:hidden" onClick={() => setPreviewBill(null)} />
           
           {/* ใบเสร็จ */}
-          <div className="relative bg-white w-[95%] max-w-lg rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 overflow-hidden print:shadow-none print:rounded-none print:w-full print:max-w-full">
+          <div className="relative bg-white w-[95%] max-w-lg rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 overflow-y-auto max-h-[90vh] print:shadow-none print:rounded-none print:w-full print:max-w-full [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             
             {/* แถบสีด้านบน */}
             <div className="h-2 bg-gradient-to-r from-[#8B5E3C] via-[#C4874F] to-[#E5B07A] print:h-3" />

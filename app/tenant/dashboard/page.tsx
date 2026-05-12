@@ -14,6 +14,7 @@ interface RoomRequest {
   roomNumber: string;
   rentPrice: number;
   depositFee?: number;
+  requireDeposit?: boolean;
   slipUrl?: string;
   idCardUrl?: string;
 }
@@ -70,7 +71,7 @@ export default function TenantDashboard() {
         const roomQuery = query(collection(db, "rooms"), where("tenantId", "==", tenantId));
         const billQuery = query(collection(db, "bills"), where("tenantId", "==", tenantId));
         const repairQuery = query(collection(db, "repairs"), where("tenantId", "==", tenantId));
-        const roomReqQuery = query(collection(db, "room_requests"), where("tenantId", "==", tenantId), where("status", "in", ["pending", "pending_docs", "pending_approval"]));
+        const roomReqQuery = query(collection(db, "room_requests"), where("tenantId", "==", tenantId), where("status", "in", ["pending", "pending_docs", "pending_approval", "queued"]));
         const bankAccountQuery = doc(db, "bankAccount", "owner");
         const settingsQuery = doc(db, "settings", "general");
         const userQuery = doc(db, "users", tenantId);
@@ -100,11 +101,13 @@ export default function TenantDashboard() {
            
            // ใช้ค่า depositFee จากการตั้งค่าหากไม่มีในเอกสาร
            let depositFee = reqData.depositFee;
-           if (!depositFee && settingsSnap && settingsSnap.exists()) {
-             depositFee = settingsSnap.data().depositFee;
+           let requireDeposit = true;
+           if (settingsSnap && settingsSnap.exists()) {
+             if (!depositFee) depositFee = settingsSnap.data().depositFee;
+             if (settingsSnap.data().requireDeposit !== undefined) requireDeposit = settingsSnap.data().requireDeposit;
            }
 
-           setRoomRequest({ id: docReq.id, ...reqData, depositFee } as RoomRequest);
+           setRoomRequest({ id: docReq.id, ...reqData, depositFee, requireDeposit } as RoomRequest);
         }
 
         if (bankAccountSnap && bankAccountSnap.exists()) {
@@ -154,7 +157,8 @@ export default function TenantDashboard() {
       const idCardUrl = blob.url;
 
       // อัปเดตคำขอ
-      const newStatus = roomRequest.slipUrl ? "pending_approval" : roomRequest.status;
+      const isDepositRequired = roomRequest.requireDeposit !== false;
+      const newStatus = (!isDepositRequired || roomRequest.slipUrl) ? "pending_approval" : roomRequest.status;
       await updateDoc(doc(db, "room_requests", roomRequest.id), {
         idCardUrl,
         status: newStatus
@@ -266,12 +270,28 @@ export default function TenantDashboard() {
                 </div>
              </div>
 
-             {(!roomRequest.slipUrl || !roomRequest.idCardUrl) ? (
+             {roomRequest.status === "queued" ? (
+               <div className="bg-sky-50/80 backdrop-blur-sm rounded-2xl p-6 border border-sky-100 shadow-sm text-center">
+                  <div className="w-16 h-16 mx-auto bg-sky-100 text-sky-600 rounded-full flex items-center justify-center mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-sky-900 mb-2">คุณกำลังอยู่ในคิวรอห้องพัก</h3>
+                  <p className="text-sky-700/80 text-sm leading-relaxed">
+                    เนื่องจากห้องนี้มีผู้จองท่านอื่นอยู่ก่อนแล้ว ระบบจึงจัดให้คุณอยู่ในคิวถัดไป<br/>
+                    กรุณารอแอดมินแจ้งสิทธิ์การชำระเงินมัดจำ (คุณจะยังไม่สามารถทำรายการได้ในขณะนี้)
+                  </p>
+               </div>
+             ) : ((roomRequest.requireDeposit !== false && !roomRequest.slipUrl) || !roomRequest.idCardUrl) ? (
                <div className="bg-white/60 backdrop-blur-sm rounded-2xl p-6 border border-white shadow-sm">
-                  <p className="text-amber-800 font-semibold mb-4 text-sm">กรุณาดำเนินการให้ครบทั้ง 2 ขั้นตอน เพื่อยืนยันการจอง:</p>
+                  <p className="text-amber-800 font-semibold mb-4 text-sm">
+                    {roomRequest.requireDeposit !== false 
+                      ? "กรุณาดำเนินการให้ครบทั้ง 2 ขั้นตอน เพื่อยืนยันการจอง:" 
+                      : "กรุณาดำเนินการอัปโหลดเอกสาร เพื่อยืนยันการจอง:"}
+                  </p>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div className={`grid grid-cols-1 ${roomRequest.requireDeposit !== false ? 'md:grid-cols-2' : ''} gap-6 mb-6`}>
                     {/* สลิปโอนเงิน */}
+                    {roomRequest.requireDeposit !== false && (
                     <div className="p-4 bg-white rounded-xl border border-amber-100 flex flex-col h-full justify-between">
                       <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -295,12 +315,13 @@ export default function TenantDashboard() {
                         </button>
                       )}
                     </div>
+                    )}
 
                     {/* บัตรประชาชน */}
                     <div className="p-4 bg-white rounded-xl border border-amber-100 flex flex-col h-full justify-between">
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                           <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold">2</span>
+                           <span className="flex items-center justify-center w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold">{roomRequest.requireDeposit !== false ? "2" : "1"}</span>
                            <h3 className="font-bold text-[var(--text-main)]">อัปโหลดสำเนาบัตรประชาชน</h3>
                         </div>
                         <p className="text-sm text-gray-500 mb-4">โปรดแนบไฟล์รูปภาพสำเนาบัตรประชาชน</p>
@@ -331,11 +352,11 @@ export default function TenantDashboard() {
                     </div>
                   </div>
 
-                  {/* หมายเหตุ 7 วัน */}
+                  {/* หมายเหตุ 3 วัน */}
                   <div className="mt-4 bg-red-50/80 border border-red-100 rounded-xl p-3 flex items-start gap-2.5 shadow-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-red-500 mt-0.5 shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                     <p className="text-xs text-red-700 font-medium leading-relaxed">
-                      <strong>หมายเหตุ:</strong> กรุณาชำระค่ามัดจำและอัปโหลดเอกสารให้ครบถ้วนภายใน 7 วัน นับจากวันที่ทำการจอง 
+                      <strong>หมายเหตุ:</strong> กรุณา{roomRequest.requireDeposit !== false ? "ชำระค่ามัดจำและ" : ""}อัปโหลดเอกสารให้ครบถ้วนภายใน 3 วัน นับจากวันที่ทำการจอง 
                       หากพ้นกำหนด ระบบจะทำการ <span className="font-bold underline">ยกเลิกการจองอัตโนมัติ</span> เพื่อให้สิทธิ์ผู้อื่นต่อไป
                     </p>
                   </div>
