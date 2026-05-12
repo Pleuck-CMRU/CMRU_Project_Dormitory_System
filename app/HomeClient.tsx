@@ -81,7 +81,7 @@ export default function HomeClient({ initialSettings }: { initialSettings: any }
             <div className="inline-block px-4 py-1.5 rounded-full bg-[#F3E7DD] text-[#8B5E3C] text-xs font-bold tracking-wider mb-6">
               A WARM SANCTUARY
             </div>
-            <h1 className="text-5xl md:text-6xl lg:text-[72px] font-extrabold text-[#3A2D23] leading-[1.1] mb-6 tracking-tight">
+            <h1 className="text-[36px] sm:text-5xl md:text-6xl lg:text-[72px] font-extrabold text-[#3A2D23] leading-[1.2] md:leading-[1.1] mb-6 tracking-tight">
               พักที่หยาหยี๋ ชีวิตดีๆ <br />
               เริ่มต้นที่นี่
             </h1>

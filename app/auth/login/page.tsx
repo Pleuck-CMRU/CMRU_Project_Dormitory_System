@@ -16,13 +16,6 @@ export default function Login() {
   const [error, setError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(() => {
-    // โหลดค่าจาก localStorage เพื่อให้ checkbox ค้างตามที่เคยเลือกไว้
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("rememberMe") === "true";
-    }
-    return false;
-  });
 
   useEffect(() => {
     if (!loading && user && role) {
@@ -40,11 +33,8 @@ export default function Login() {
     setError("");
 
     try {
-      // ตั้งค่า persistence ตามการเลือกของผู้ใช้
-      // browserLocalPersistence  → ยังอยู่แม้ปิดเบราว์เซอร์
-      // browserSessionPersistence → ออกเมื่อปิด tab หรือหน้าต่าง
-      await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
-      localStorage.setItem("rememberMe", String(rememberMe));
+      // ตั้งค่าให้อยู่ในระบบตลอดไป (จนกว่าจะกดล็อกเอาท์)
+      await setPersistence(auth, browserLocalPersistence);
 
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
@@ -54,12 +44,15 @@ export default function Login() {
       const userRole = docSnap.exists() ? docSnap.data().role : "tenant";
 
       // ยกเว้นการยืนยันอีเมลสำหรับผู้ดูแลระบบ (admin)
+      // ปิดการเช็ค Email Verification ชั่วคราวเพื่อให้สามารถทดสอบระบบได้
+      /*
       if (!userCredential.user.emailVerified && userRole !== "admin") {
         await auth.signOut();
         setError("กรุณายืนยันอีเมลก่อนเข้าสู่ระบบ (โปรดเช็คกล่องจดหมายของคุณ)");
         setIsLoggingIn(false);
         return;
       }
+      */
 
       // ผู้ใช้จะถูกเปลี่ยนหน้าอัตโนมัติผ่าน useEffect
     } catch (err: any) {
@@ -186,20 +179,6 @@ export default function Login() {
                   )}
                 </button>
               </div>
-            </div>
-
-            {/* จดจำฉันไว้ในระบบ */}
-            <div className="flex items-center gap-2">
-              <input
-                id="remember-me"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded border-[var(--glass-border)] text-[var(--accent-brown)] cursor-pointer accent-[var(--accent-brown)]"
-              />
-              <label htmlFor="remember-me" className="text-sm text-[var(--text-muted)] cursor-pointer select-none">
-                จดจำฉันไว้ในระบบ
-              </label>
             </div>
 
             {/* ยืนยันข้อมูล */}

@@ -55,8 +55,8 @@ export async function POST(request: NextRequest) {
         notification: {
           title,
           body,
-          icon: "/favicon.ico",
-          badge: "/favicon.ico",
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
           requireInteraction: false,
         },
         fcmOptions: {

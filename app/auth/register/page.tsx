@@ -77,26 +77,16 @@ export default function Register() {
         createdAt: new Date().toISOString()
       });
 
-      // 4. ส่ง custom HTML email ผ่าน API route
+      // 4. ส่งอีเมลยืนยันตัวตนผ่านระบบพื้นฐานของ Firebase
+      const actionCodeSettings = {
+        url: window.location.origin + '/auth/login?verified=1',
+        handleCodeInApp: false,
+      };
       try {
-        const res = await fetch("/api/send-verification-email", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: formData.email, name: formData.name }),
-        });
-        if (!res.ok) {
-          throw new Error("Resend API Failed");
-        }
-      } catch (apiError) {
-        // ถ้าระบบ Resend ล้มเหลว ให้ Fallback ไปใช้ Firebase (จะตก Spam ก็ยังดีกว่าส่งไม่ไป)
-        console.warn("Resend failed, falling back to Firebase email:", apiError);
-        
-        // ต้องการ action code settings เพื่อให้กลับมาที่เว็บ
-        const actionCodeSettings = {
-          url: window.location.origin + '/auth/login?verified=1',
-          handleCodeInApp: false,
-        };
         await sendEmailVerification(newUser, actionCodeSettings);
+      } catch (emailErr) {
+        console.error("Failed to send Firebase verification email:", emailErr);
+        // ระบบสมัครสำเร็จแล้ว แต่แค่ส่งอีเมลไม่ผ่าน ไม่ควรให้หน้าพัง
       }
 
       await signOut(auth); // ออกจากระบบหลังสมัครเสร็จ

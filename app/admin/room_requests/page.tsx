@@ -12,7 +12,7 @@ interface RoomRequest {
   roomNumber: string;
   building: string;
   rentPrice: number;
-  status: "pending" | "pending_docs" | "pending_approval" | "approved" | "rejected";
+  status: "pending" | "pending_docs" | "pending_approval" | "approved" | "rejected" | "queued" | "skipped";
   createdAt: number | Date | { toDate: () => Date } | any; // ใช้ 'any' เฉพาะเมื่อจำเป็นเท่านั้น, แต่โดยปกติแล้ว Firebase Timestamp สามารถทำงานได้ดี
   tenantName?: string;
   tenantEmail?: string;
@@ -197,10 +197,6 @@ export default function AdminRoomRequestsPage() {
     try {
       await updateDoc(doc(db, "room_requests", requestId), { status: "rejected" });
 
-      // อัปเดตห้องพักกลับเป็น "ว่าง"
-      await updateDoc(doc(db, "rooms", roomId), {
-        status: "ว่าง"
-      });
 
       // ส่งแจ้งเตือนไปยังผู้เช่า
       const rejReq = requests.find(r => r.id === requestId);
@@ -217,11 +213,204 @@ export default function AdminRoomRequestsPage() {
         }).catch(() => {});
       }
 
+      // ตรวจสอบว่ามีคิวต่อไปหรือไม่
+      const queueQ = query(
+        collection(db, "room_requests"),
+        where("roomId", "==", roomId),
+        where("status", "==", "queued"),
+        orderBy("createdAt", "asc")
+      );
+      const queueSnap = await getDocs(queueQ);
+      
+      if (!queueSnap.empty) {
+        // มีคิวถัดไป ให้สิทธิ์คิวถัดไป
+        const nextReqDoc = queueSnap.docs[0];
+        await updateDoc(doc(db, "room_requests", nextReqDoc.id), { status: "pending_docs" });
+        
+        // ส่งแจ้งเตือนคิวถัดไป (Push)
+        fetch("/api/send-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetUserId: nextReqDoc.data().tenantId,
+            title: "🎉 ถึงคิวของคุณแล้ว!",
+            body: `ถึงคิวห้อง ${rejReq?.building}${rejReq?.roomNumber} แล้ว กรุณาเข้าสู่ระบบเพื่อชำระเงินมัดจำภายใน 3 วัน`,
+            url: "/tenant/dashboard",
+          }),
+        }).catch(() => {});
+
+        // แจ้งเตือนไปยังคิวถัดไปผ่านแชท
+        await addDoc(collection(db, "chats", nextReqDoc.data().tenantId, "messages"), {
+          text: `🎉 ถึงคิวจองห้องพักของคุณแล้ว!\n\nห้อง ${rejReq?.building}${rejReq?.roomNumber} ที่คุณได้ลงคิวไว้ ตอนนี้ถึงคิวของคุณแล้วครับ\n\nกรุณาเข้าไปที่เมนู "แดชบอร์ด" เพื่อชำระเงินมัดจำและอัปโหลดเอกสาร ภายใน 3 วัน เพื่อยืนยันสิทธิ์การจองครับ`,
+          senderId: "admin",
+          senderName: "ระบบอัตโนมัติ",
+          senderRole: "admin",
+          type: "text",
+          createdAt: serverTimestamp(),
+        });
+        await setDoc(doc(db, "chats", nextReqDoc.data().tenantId), {
+          lastMessage: `🎉 ถึงคิวจองห้อง ${rejReq?.building}${rejReq?.roomNumber} ของคุณแล้ว!`,
+          lastMessageTime: serverTimestamp(),
+        }, { merge: true });
+        
+        // ห้องยังคงสถานะ 'ติดจอง' อยู่แล้ว ไม่ต้องเปลี่ยน
+      } else {
+        // ไม่มีใครต่อคิว อัปเดตห้องพักกลับเป็น "ว่าง"
+        await updateDoc(doc(db, "rooms", roomId), {
+          status: "ว่าง"
+        });
+      }
+
       toast.success("ปฏิเสธคำขอสำเร็จ");
       fetchRequests();
     } catch (error) {
       console.error("Error rejecting request:", error);
       toast.error("เกิดข้อผิดพลาดในการปฏิเสธคำขอ");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleSkipQueue = async (requestId: string, roomId: string) => {
+    const hasQueue = requests.some(r => r.roomId === roomId && r.status === 'queued');
+    if (!confirm(hasQueue ? "ยืนยันการเลื่อนคิวข้ามผู้ใช้รายนี้? (ผู้ใช้นี้จะถูกตัดสิทธิ์และคิวถัดไปจะได้รับสิทธิ์ทันที)" : "ยืนยันการตัดสิทธิ์ผู้ใช้รายนี้? (เนื่องจากหมดเวลาชำระมัดจำ และห้องจะถูกปรับเป็นสถานะว่าง)")) return;
+    
+    setProcessingId(requestId);
+    try {
+      // 1. เปลี่ยนสถานะคำขอนี้เป็น skipped
+      await updateDoc(doc(db, "room_requests", requestId), { status: "skipped" });
+
+      // ส่งแจ้งเตือนว่าถูกข้ามคิว
+      const rejReq = requests.find(r => r.id === requestId);
+      if (rejReq) {
+        // แจ้งเตือนผ่าน Push
+        fetch("/api/send-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetUserId: rejReq.tenantId,
+            title: "⏱️ หมดเวลาชำระมัดจำ/ถูกเลื่อนคิว",
+            body: `คำขอจองห้อง${rejReq.building}${rejReq.roomNumber} ของคุณถูกข้ามคิวแล้วเนื่องจากหมดเวลาที่กำหนด หรือไม่พร้อมชำระเงิน`,
+            url: "/tenant/room",
+          }),
+        }).catch(() => {});
+
+        // แจ้งเตือนผ่านแชท
+        await addDoc(collection(db, "chats", rejReq.tenantId, "messages"), {
+          text: `⏱️ แจ้งเตือนหมดเวลาชำระมัดจำ\n\nคำขอจองห้อง ${rejReq.building}${rejReq.roomNumber} ของคุณถูกเลื่อนคิวแล้ว เนื่องจากเลยกำหนดเวลาชำระเงิน 3 วันหรือไม่พร้อมชำระเงิน\n\nคุณสามารถดำเนินการจองห้องอื่นที่ยังว่างอยู่ได้ครับ`,
+          senderId: "admin",
+          senderName: "ระบบอัตโนมัติ",
+          senderRole: "admin",
+          type: "text",
+          createdAt: serverTimestamp(),
+        });
+        await setDoc(doc(db, "chats", rejReq.tenantId), {
+          lastMessage: `⏱️ คำขอจองห้องถูกเลื่อนคิว`,
+          lastMessageTime: serverTimestamp(),
+        }, { merge: true });
+      }
+
+      // 2. หาคิวถัดไปสำหรับห้องนี้
+      const queueQ = query(
+        collection(db, "room_requests"),
+        where("roomId", "==", roomId),
+        where("status", "==", "queued"),
+        orderBy("createdAt", "asc")
+      );
+      const queueSnap = await getDocs(queueQ);
+      
+      if (!queueSnap.empty) {
+        // มีคิวถัดไป
+        const nextReqDoc = queueSnap.docs[0];
+        await updateDoc(doc(db, "room_requests", nextReqDoc.id), { status: "pending_docs" });
+        
+        // ส่งแจ้งเตือนไปยังคิวถัดไป (Push)
+        fetch("/api/send-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetUserId: nextReqDoc.data().tenantId,
+            title: "🎉 ถึงคิวของคุณแล้ว!",
+            body: `ถึงคิวห้อง ${rejReq?.building}${rejReq?.roomNumber} แล้ว กรุณาเข้าสู่ระบบเพื่อชำระเงินมัดจำภายใน 3 วัน`,
+            url: "/tenant/dashboard",
+          }),
+        }).catch(() => {});
+
+        // แจ้งเตือนไปยังคิวถัดไปผ่านแชท
+        await addDoc(collection(db, "chats", nextReqDoc.data().tenantId, "messages"), {
+          text: `🎉 ถึงคิวจองห้องพักของคุณแล้ว!\n\nห้อง ${rejReq?.building}${rejReq?.roomNumber} ที่คุณได้ลงคิวไว้ ตอนนี้ถึงคิวของคุณแล้วครับ\n\nกรุณาเข้าไปที่เมนู "แดชบอร์ด" เพื่อชำระเงินมัดจำและอัปโหลดเอกสาร ภายใน 3 วัน เพื่อยืนยันสิทธิ์การจองครับ`,
+          senderId: "admin",
+          senderName: "ระบบอัตโนมัติ",
+          senderRole: "admin",
+          type: "text",
+          createdAt: serverTimestamp(),
+        });
+        await setDoc(doc(db, "chats", nextReqDoc.data().tenantId), {
+          lastMessage: `🎉 ถึงคิวจองห้อง ${rejReq?.building}${rejReq?.roomNumber} ของคุณแล้ว!`,
+          lastMessageTime: serverTimestamp(),
+        }, { merge: true });
+        
+        toast.success("เลื่อนคิวสำเร็จ มีผู้จองรอคิวอยู่และได้รับสิทธิ์เรียบร้อย");
+      } else {
+        // ไม่มีใครต่อคิว ให้ห้องกลับไปสถานะ "ว่าง"
+        await updateDoc(doc(db, "rooms", roomId), { status: "ว่าง" });
+        toast.success("ตัดสิทธิ์สำเร็จ (ไม่มีผู้ต่อคิว ห้องถูกปรับเป็นสถานะว่าง)");
+      }
+
+      fetchRequests();
+    } catch (error) {
+      console.error("Error skipping queue:", error);
+      toast.error("เกิดข้อผิดพลาดในการเลื่อนคิว");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handlePromoteQueue = async (requestId: string, roomId: string) => {
+    if (!confirm("ยืนยันการให้สิทธิ์ผู้ใช้รายนี้เป็นคิวปัจจุบัน? (จะใช้ในกรณีที่คิวก่อนหน้าถูกปฏิเสธหรือยกเลิกแล้วผู้ใช้ค้างอยู่ในสถานะรอคิว)")) return;
+    
+    setProcessingId(requestId);
+    try {
+      const targetReq = requests.find(r => r.id === requestId);
+      
+      // อัปเดตสถานะเป็น pending_docs เพื่อให้จ่ายมัดจำ
+      await updateDoc(doc(db, "room_requests", requestId), { status: "pending_docs" });
+      // บังคับให้ห้องมีสถานะ 'ติดจอง' เผื่อมันว่างอยู่
+      await updateDoc(doc(db, "rooms", roomId), { status: "ติดจอง" });
+
+      if (targetReq) {
+        // ส่งแจ้งเตือนไปยังผู้ใช้ที่ได้เลื่อนคิว (Push)
+        fetch("/api/send-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targetUserId: targetReq.tenantId,
+            title: "🎉 ถึงคิวของคุณแล้ว!",
+            body: `ถึงคิวห้อง ${targetReq.building}${targetReq.roomNumber} แล้ว กรุณาเข้าสู่ระบบเพื่อชำระเงินมัดจำภายใน 3 วัน`,
+            url: "/tenant/dashboard",
+          }),
+        }).catch(() => {});
+
+        // แจ้งเตือนผ่านแชท
+        await addDoc(collection(db, "chats", targetReq.tenantId, "messages"), {
+          text: `🎉 ถึงคิวจองห้องพักของคุณแล้ว!\n\nห้อง ${targetReq.building}${targetReq.roomNumber} ที่คุณได้ลงคิวไว้ ตอนนี้ถึงคิวของคุณแล้วครับ\n\nกรุณาเข้าไปที่เมนู "แดชบอร์ด" เพื่อชำระเงินมัดจำและอัปโหลดเอกสาร ภายใน 3 วัน เพื่อยืนยันสิทธิ์การจองครับ`,
+          senderId: "admin",
+          senderName: "ระบบอัตโนมัติ",
+          senderRole: "admin",
+          type: "text",
+          createdAt: serverTimestamp(),
+        });
+        await setDoc(doc(db, "chats", targetReq.tenantId), {
+          lastMessage: `🎉 ถึงคิวจองห้อง ${targetReq.building}${targetReq.roomNumber} ของคุณแล้ว!`,
+          lastMessageTime: serverTimestamp(),
+        }, { merge: true });
+      }
+
+      toast.success("ให้สิทธิ์จองสำเร็จ ผู้ใช้สามารถชำระเงินมัดจำได้แล้ว");
+      fetchRequests();
+    } catch (error) {
+      console.error("Error promoting queue:", error);
+      toast.error("เกิดข้อผิดพลาดในการเลื่อนคิว");
     } finally {
       setProcessingId(null);
     }
@@ -399,13 +588,16 @@ export default function AdminRoomRequestsPage() {
                       <span className="md:hidden font-semibold text-xs text-[var(--text-muted)] uppercase">สถานะ</span>
                       <span className={`px-3 py-1.5 rounded-full text-xs font-semibold border shadow-sm ${
                         request.status === 'pending' || request.status === 'pending_docs' ? 'bg-amber-50/80 text-amber-700 border-amber-200 backdrop-blur-sm' :
+                        request.status === 'queued' ? 'bg-sky-50/80 text-sky-700 border-sky-200 backdrop-blur-sm' :
                         request.status === 'pending_approval' ? 'bg-blue-50/80 text-blue-700 border-blue-200 backdrop-blur-sm' :
                         request.status === 'approved' ? 'bg-emerald-50/80 text-emerald-700 border-emerald-200 backdrop-blur-sm' :
                         'bg-red-50/80 text-red-700 border-red-200 backdrop-blur-sm'
                       }`}>
                         {request.status === 'pending' || request.status === 'pending_docs' ? 'รอผู้เช่าส่งเอกสาร' :
+                         request.status === 'queued' ? 'รอคิว' :
                          request.status === 'pending_approval' ? 'รอตรวจสอบเอกสาร' :
-                         request.status === 'approved' ? 'อนุมัติแล้ว' : 'ปฏิเสธ'}
+                         request.status === 'approved' ? 'อนุมัติแล้ว' : 
+                         request.status === 'skipped' ? 'ถูกข้ามคิว' : 'ปฏิเสธ'}
                       </span>
                     </td>
                     <td className="flex justify-end gap-2 md:table-cell px-2 py-3 md:px-6 md:py-4 text-right mt-2 md:mt-0">
@@ -427,6 +619,17 @@ export default function AdminRoomRequestsPage() {
                           >
                             อนุมัติ
                           </button>
+                          
+                          {(request.status === 'pending' || request.status === 'pending_docs') && (
+                            <button 
+                              onClick={() => handleSkipQueue(request.id, request.roomId)}
+                              disabled={processingId === request.id}
+                              className="px-4 py-2 bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 hover:text-amber-800 rounded-xl transition-all font-bold disabled:opacity-50 shadow-sm hover:shadow-md whitespace-nowrap"
+                            >
+                              {requests.some(r => r.roomId === request.roomId && r.status === 'queued') ? 'เลื่อนคิว' : 'ตัดสิทธิ์ (หมดเวลา)'}
+                            </button>
+                          )}
+
                           <button 
                             onClick={() => handleReject(request.id, request.roomId)}
                             disabled={processingId === request.id}
@@ -435,6 +638,17 @@ export default function AdminRoomRequestsPage() {
                             ปฏิเสธ
                           </button>
                         </div>
+                       ) : request.status === 'queued' ? (
+                         <div className="flex justify-end gap-2 items-center">
+                           <span className="text-sky-600 font-bold bg-sky-50 px-3 py-1.5 rounded-lg border border-sky-100 text-xs hidden md:inline-block">- รอคิว -</span>
+                           <button 
+                             onClick={() => handlePromoteQueue(request.id, request.roomId)}
+                             disabled={processingId === request.id}
+                             className="px-4 py-2 bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 hover:text-sky-800 rounded-xl transition-all font-bold disabled:opacity-50 shadow-sm hover:shadow-md whitespace-nowrap"
+                           >
+                             ให้สิทธิ์จอง
+                           </button>
+                         </div>
                        ) : (
                          <span className="text-[var(--text-muted)] text-xs font-medium bg-black/5 px-3 py-1.5 rounded-lg border border-black/10">- ดำเนินการแล้ว -</span>
                        )}

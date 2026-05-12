@@ -13,6 +13,7 @@ export default function FinanceSettingsPage() {
   const [initialDataStr, setInitialDataStr] = useState<string>("");
 
   const [formData, setFormData] = useState({
+    requireDeposit: true,
     depositFee: 5000,
     electricUnitPrice: 8,
     waterFeeFlat: 150,
@@ -30,6 +31,7 @@ export default function FinanceSettingsPage() {
         if (docSnap.exists()) {
           const data = docSnap.data() as any;
           const completeData = {
+            requireDeposit: data.requireDeposit !== undefined ? data.requireDeposit : true,
             depositFee: data.depositFee ?? formData.depositFee,
             electricUnitPrice: data.electricUnitPrice ?? formData.electricUnitPrice,
             waterFeeFlat: data.waterFeeFlat ?? formData.waterFeeFlat,
@@ -120,11 +122,24 @@ export default function FinanceSettingsPage() {
           <div className="divide-y divide-gray-50">
             <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between group hover:bg-gray-50/50 transition-colors gap-2">
               <div className="w-full sm:w-1/2">
+                <label className="text-sm font-semibold text-gray-900">บังคับชำระมัดจำ</label>
+                <p className="text-[11px] text-gray-400">เปิด-ปิด การชำระมัดจำเมื่อผู้เช่ายืนยันการจองห้อง</p>
+              </div>
+              <div className="w-full sm:w-1/2 flex items-center sm:justify-end gap-2">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" className="sr-only peer" checked={formData.requireDeposit} onChange={e => setFormData({ ...formData, requireDeposit: e.target.checked })} />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--accent-brown)]"></div>
+                </label>
+              </div>
+            </div>
+
+            <div className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between group hover:bg-gray-50/50 transition-colors gap-2 ${!formData.requireDeposit ? 'opacity-50 pointer-events-none' : ''}`}>
+              <div className="w-full sm:w-1/2">
                 <label className="text-sm font-semibold text-gray-900">ค่ามัดจำห้องพัก</label>
                 <p className="text-[11px] text-gray-400">ชำระครั้งแรกก่อนเข้าอยู่</p>
               </div>
               <div className="w-full sm:w-1/2 flex items-center sm:justify-end gap-2">
-                <input type="number" min="0" value={formData.depositFee} onChange={e => setFormData({ ...formData, depositFee: Number(e.target.value) })} className="w-24 text-right bg-transparent border-none p-0 focus:ring-0 text-gray-900 font-bold" />
+                <input type="number" min="0" value={formData.depositFee} onChange={e => setFormData({ ...formData, depositFee: Number(e.target.value) })} className="w-24 text-right bg-transparent border-none p-0 focus:ring-0 text-gray-900 font-bold" disabled={!formData.requireDeposit} />
                 <span className="text-gray-400 font-medium text-sm">บาท</span>
               </div>
             </div>
